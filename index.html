@@ -137,17 +137,6 @@
         <input type="text" id="employeeId" class="glass-input" placeholder="उदा. EMP001" required autocomplete="username">
       </div>
 
-      <div class="mb-2">
-        <label class="field-label" for="password">पासवर्ड</label>
-        <div style="position:relative;">
-          <input type="password" id="password" class="glass-input" placeholder="पासवर्ड टाका" required autocomplete="current-password" style="padding-right:44px;">
-          <button type="button" id="togglePassword" aria-label="पासवर्ड दाखवा"
-            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-          </button>
-        </div>
-      </div>
-
       <div id="errorMessage" class="error-message"><span id="errorText"></span></div>
 
       <button type="submit" class="btn-primary mt-6" id="loginBtn">
@@ -181,11 +170,6 @@
     localStorage.setItem('ss_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
     syncThemeIcons();
   });
-
-  document.getElementById('togglePassword').addEventListener('click', () => {
-    const input = document.getElementById('password');
-    input.type = input.type === 'password' ? 'text' : 'password';
-  });
 </script>
 
 <script type="module">
@@ -202,16 +186,15 @@
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const employeeId = document.getElementById('employeeId').value.trim();
-    const password = document.getElementById('password').value;
 
-    if (!employeeId || !password) {
-      showError('कर्मचारी आयडी आणि पासवर्ड भरा');
+    if (!employeeId) {
+      showError('कर्मचारी आयडी भरा');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await login(employeeId, password);
+      const response = await login(employeeId);
       if (response.success) {
         setSession(response.token, response.user);
         await Swal.fire({
