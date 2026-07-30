@@ -8,7 +8,7 @@
 export const API_CONFIG = {
   // ⚠️ REQUIRED: Replace with your deployed Apps Script Web App /exec URL
   // (Deploy > New deployment > Web app, in the backend project).
-  BASE_URL: 'https://script.google.com/macros/s/REPLACE_WITH_YOUR_DEPLOYMENT_ID/exec',
+  BASE_URL: 'https://script.google.com/macros/s/AKfycbxjUDb0tL6DEqsVkm6C-6rKQERSkGYuvkbZ72D8M3AHkVHVE29Ao4fEWYbyRJM4pls2vA/exec',
   TIMEOUT_MS: 30000,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY_MS: 1000
