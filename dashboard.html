@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1E315C">
+<title>Smart Services | Admin Dashboard</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="assets/images/icon-32.png">
+<link rel="apple-touch-icon" href="assets/images/icon-180.png">
+<script>if (localStorage.getItem('ss_theme') === 'dark') document.documentElement.classList.add('dark');</script>
+
+<style>
+  :root { --navy:#1E315C; --navy-deep:#101d38; --yellow:#F4B400; --bg:#F8FAFC; }
+  * { font-family:'Noto Sans Devanagari', sans-serif; }
+  body { margin:0; background:var(--bg); color:#1a1a1a; padding-bottom:40px; }
+  html.dark body { background:#0b1120; color:#e5e9f2; }
+
+  .header { background:var(--navy); color:#fff; position:sticky; top:0; z-index:30; box-shadow:0 4px 18px rgba(0,0,0,0.18); }
+  .card { background:#fff; border-radius:16px; padding:18px; box-shadow:0 2px 14px rgba(15,23,42,0.06); border:1px solid #eef1f6; }
+  html.dark .card { background:#131c30; border-color:#1e293b; }
+
+  .stat-card { padding:16px 18px; }
+  .stat-value { font-size:26px; font-weight:800; color:var(--navy); }
+  html.dark .stat-value { color:#f4c430; }
+  .stat-label { font-size:12px; color:#64748b; font-weight:600; }
+
+  .input, select.input {
+    width:100%; border:1.5px solid #e2e8f0; border-radius:10px; padding:9px 12px;
+    font-size:13.5px; background:#fff; color:#111;
+  }
+  html.dark .input { background:#0f172a; border-color:#26314a; color:#e5e9f2; }
+  .input:focus { outline:none; border-color:var(--navy); }
+
+  .btn-primary { background:var(--yellow); color:var(--navy-deep); border:none; padding:10px 18px; border-radius:10px; font-weight:700; font-size:13.5px; cursor:pointer; }
+  .btn-ghost { background:transparent; border:1.5px solid #e2e8f0; padding:9px 14px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; color:#475569; }
+  html.dark .btn-ghost { border-color:#26314a; color:#94a3b8; }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:9px 10px; color:#64748b; font-weight:700; font-size:11.5px; text-transform:uppercase; border-bottom:2px solid #eef1f6; white-space:nowrap; }
+  html.dark th { color:#94a3b8; border-color:#1e293b; }
+  td { padding:9px 10px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+  html.dark td { border-color:#1a2333; }
+  tr:hover td { background:#f8fafc; }
+  html.dark tr:hover td { background:#0f172a; }
+
+  .pill { display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; }
+  .pill.done { background:#ecfdf5; color:#047857; }
+  .pill.pending { background:#fffbeb; color:#b45309; }
+  html.dark .pill.done { background:#052e1f; color:#4ade80; }
+  html.dark .pill.pending { background:#3a2a06; color:#fbbf24; }
+
+  .chart-wrap { position:relative; height:260px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img src="assets/images/logo-icon.png" alt="" style="width:34px;height:34px;">
+      <div>
+        <div class="font-bold text-sm leading-tight">Smart Services</div>
+        <div class="text-xs opacity-70 leading-tight">Admin Dashboard</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs opacity-80 hidden sm:inline" id="userLabel"></span>
+      <a href="visit.html" class="text-xs font-semibold rounded-lg px-3 py-2" style="background:rgba(255,255,255,0.12);color:#fff;text-decoration:none;">+ नवीन भेट</a>
+      <button id="themeToggle" type="button" class="rounded-full p-2" style="background:rgba(255,255,255,0.12);" aria-label="थीम">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
+      </button>
+      <button id="logoutBtn" type="button" class="text-xs font-semibold rounded-lg px-3 py-2" style="background:rgba(255,255,255,0.12);">बाहेर पडा</button>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-7xl mx-auto px-4 pt-6">
+
+  <!-- Stat cards -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+    <div class="card stat-card"><div class="stat-value" id="statTotal">–</div><div class="stat-label">एकूण भेटी</div></div>
+    <div class="card stat-card"><div class="stat-value" id="statToday">–</div><div class="stat-label">आजच्या भेटी</div></div>
+    <div class="card stat-card"><div class="stat-value" id="statMonth">–</div><div class="stat-label">या महिन्यातील</div></div>
+    <div class="card stat-card"><div class="stat-value" id="statPending">–</div><div class="stat-label">सही प्रलंबित</div></div>
+    <div class="card stat-card"><div class="stat-value" id="statCompleted">–</div><div class="stat-label">पूर्ण भेटी</div></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <div class="card"><div class="font-bold text-sm mb-3" style="color:var(--navy);">जिल्हा-वार भेटी</div><div class="chart-wrap"><canvas id="chartDistrict"></canvas></div></div>
+    <div class="card"><div class="font-bold text-sm mb-3" style="color:var(--navy);">मासिक कल</div><div class="chart-wrap"><canvas id="chartMonthly"></canvas></div></div>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+    <div class="card"><div class="font-bold text-sm mb-3" style="color:var(--navy);">PM-वार</div><div class="chart-wrap" style="height:200px;"><canvas id="chartPM"></canvas></div></div>
+    <div class="card"><div class="font-bold text-sm mb-3" style="color:var(--navy);">DM-वार</div><div class="chart-wrap" style="height:200px;"><canvas id="chartDM"></canvas></div></div>
+    <div class="card"><div class="font-bold text-sm mb-3" style="color:var(--navy);">ADM-वार</div><div class="chart-wrap" style="height:200px;"><canvas id="chartADM"></canvas></div></div>
+  </div>
+
+  <!-- Search & Filters -->
+  <div class="card mb-4">
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
+      <div class="col-span-2">
+        <label class="text-xs font-semibold" style="color:#64748b;">शोध (Visit ID / कर्मचारी / स्टेशन)</label>
+        <input class="input" id="filterSearch" placeholder="शोधा...">
+      </div>
+      <div><label class="text-xs font-semibold" style="color:#64748b;">जिल्हा</label><select class="input" id="filterDistrict"><option value="">सर्व</option></select></div>
+      <div><label class="text-xs font-semibold" style="color:#64748b;">भूमिका</label>
+        <select class="input" id="filterRole">
+          <option value="">सर्व</option><option value="PM">PM</option><option value="DM">DM</option><option value="ADM">ADM</option>
+        </select>
+      </div>
+      <div><label class="text-xs font-semibold" style="color:#64748b;">पासून</label><input type="date" class="input" id="filterDateFrom"></div>
+      <div><label class="text-xs font-semibold" style="color:#64748b;">पर्यंत</label><input type="date" class="input" id="filterDateTo"></div>
+    </div>
+    <div class="flex justify-end gap-2 mt-3">
+      <button type="button" class="btn-ghost" id="clearFiltersBtn">साफ करा</button>
+      <button type="button" class="btn-primary" id="applyFiltersBtn">फिल्टर लागू करा</button>
+    </div>
+  </div>
+
+  <!-- Results table -->
+  <div class="card" style="overflow-x:auto;">
+    <div class="flex items-center justify-between mb-3">
+      <div class="font-bold text-sm" style="color:var(--navy);">भेटींची यादी</div>
+      <div class="text-xs" style="color:#94a3b8;" id="resultCount"></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Visit ID</th><th>कर्मचारी</th><th>भूमिका</th><th>जिल्हा</th><th>बस स्टेशन</th>
+          <th>दिनांक</th><th>PDF</th><th>सही चेकलिस्ट</th>
+        </tr>
+      </thead>
+      <tbody id="visitsTableBody">
+        <tr><td colspan="8" class="text-center py-6" style="color:#94a3b8;">लोड होत आहे...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    document.documentElement.classList.toggle('dark');
+    localStorage.setItem('ss_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+  });
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
+
+<script type="module">
+  import { requireRole, getUser, logoutAndRedirect } from './assets/js/auth.js';
+  import { getDashboard, getDistricts, getAllVisits, regeneratePDF } from './assets/js/api.js';
+  import { escapeHtml } from './assets/js/utils.js';
+
+  if (!requireRole('Admin')) { throw new Error('redirecting'); }
+
+  const user = getUser();
+  document.getElementById('userLabel').textContent = `${user.name} · ${user.role}`;
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    Swal.fire({ title: 'बाहेर पडायचे आहे का?', icon: 'question', showCancelButton: true, confirmButtonText: 'होय', cancelButtonText: 'रद्द करा' })
+      .then((r) => { if (r.isConfirmed) logoutAndRedirect(); });
+  });
+
+  const isDark = () => document.documentElement.classList.contains('dark');
+  const NAVY = '#1E315C', YELLOW = '#F4B400', RED = '#dc2626', GREEN = '#16a34a', PURPLE = '#7c3aed';
+
+  init();
+
+  async function init() {
+    await Promise.all([loadDashboardData(), loadDistrictFilterOptions()]);
+    await loadVisitsTable();
+
+    document.getElementById('applyFiltersBtn').addEventListener('click', loadVisitsTable);
+    document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+      document.getElementById('filterSearch').value = '';
+      document.getElementById('filterDistrict').value = '';
+      document.getElementById('filterRole').value = '';
+      document.getElementById('filterDateFrom').value = '';
+      document.getElementById('filterDateTo').value = '';
+      loadVisitsTable();
+    });
+  }
+
+  async function loadDistrictFilterOptions() {
+    const response = await getDistricts();
+    if (!response.success) return;
+    const select = document.getElementById('filterDistrict');
+    response.data.forEach((d) => {
+      const opt = document.createElement('option');
+      opt.value = d; opt.textContent = d;
+      select.appendChild(opt);
+    });
+  }
+
+  async function loadDashboardData() {
+    const response = await getDashboard();
+    if (!response.success) {
+      Swal.fire({ icon: 'error', title: 'डॅशबोर्ड लोड करण्यात अडचण', text: response.message });
+      return;
+    }
+    const d = response.dashboard;
+    document.getElementById('statTotal').textContent = d.cards.totalVisits;
+    document.getElementById('statToday').textContent = d.cards.todayVisits;
+    document.getElementById('statMonth').textContent = d.cards.monthlyVisits;
+    document.getElementById('statPending').textContent = d.cards.pendingSignedChecklist;
+    document.getElementById('statCompleted').textContent = d.cards.completedVisits;
+
+    renderBarChart('chartDistrict', d.charts.districtWise, NAVY);
+    renderLineChart('chartMonthly', d.charts.monthlyTrend, YELLOW);
+    renderBarChart('chartPM', d.charts.pmWise, GREEN);
+    renderBarChart('chartDM', d.charts.dmWise, PURPLE);
+    renderBarChart('chartADM', d.charts.admWise, RED);
+  }
+
+  function chartTextColor() { return isDark() ? '#94a3b8' : '#475569'; }
+  function chartGridColor() { return isDark() ? '#1e293b' : '#eef1f6'; }
+
+  function renderBarChart(canvasId, dataObj, color) {
+    const labels = Object.keys(dataObj || {});
+    const values = labels.map((k) => dataObj[k]);
+    if (!labels.length) { labels.push('डेटा नाही'); values.push(0); }
+
+    new Chart(document.getElementById(canvasId), {
+      type: 'bar',
+      data: { labels, datasets: [{ data: values, backgroundColor: color, borderRadius: 6, maxBarThickness: 34 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: chartTextColor(), font: { family: "'Noto Sans Devanagari'" } }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: chartTextColor(), precision: 0 }, grid: { color: chartGridColor() } }
+        }
+      }
+    });
+  }
+
+  function renderLineChart(canvasId, dataObj, color) {
+    const labels = Object.keys(dataObj || {}).sort();
+    const values = labels.map((k) => dataObj[k]);
+
+    new Chart(document.getElementById(canvasId), {
+      type: 'line',
+      data: { labels, datasets: [{ data: values, borderColor: color, backgroundColor: color + '22', fill: true, tension: 0.35, pointRadius: 4 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: chartTextColor() }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: chartTextColor(), precision: 0 }, grid: { color: chartGridColor() } }
+        }
+      }
+    });
+  }
+
+  async function loadVisitsTable() {
+    const tbody = document.getElementById('visitsTableBody');
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6" style="color:#94a3b8;">लोड होत आहे...</td></tr>';
+
+    const filters = {
+      search: document.getElementById('filterSearch').value.trim(),
+      district: document.getElementById('filterDistrict').value,
+      role: document.getElementById('filterRole').value,
+      dateFrom: document.getElementById('filterDateFrom').value,
+      dateTo: document.getElementById('filterDateTo').value
+    };
+
+    const response = await getAllVisits(filters);
+    if (!response.success) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6" style="color:#b91c1c;">${escapeHtml(response.message)}</td></tr>`;
+      return;
+    }
+
+    document.getElementById('resultCount').textContent = `${response.count} निकाल`;
+
+    if (!response.data.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6" style="color:#94a3b8;">कोणतीही भेट सापडली नाही</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    response.data.forEach((visit) => {
+      const tr = document.createElement('tr');
+
+      const cells = [
+        visit.visitId, visit.employeeName || visit.employeeId, visit.employeeRole || '—',
+        visit.district, visit.busStation, visit.visitDate
+      ];
+      cells.forEach((text) => {
+        const td = document.createElement('td');
+        td.textContent = text || '—'; // safe text insertion, no innerHTML
+        tr.appendChild(td);
+      });
+
+      const pdfTd = document.createElement('td');
+      if (visit.generatedPdfUrl) {
+        const a = document.createElement('a');
+        a.href = visit.generatedPdfUrl; a.target = '_blank'; a.textContent = '📄 पहा';
+        a.style.cssText = 'color:#1E315C;font-weight:700;text-decoration:none;';
+        pdfTd.appendChild(a);
+      } else {
+        const btn = document.createElement('button');
+        btn.textContent = '🔄 तयार करा';
+        btn.style.cssText = 'color:#b45309;font-weight:700;background:none;border:none;cursor:pointer;';
+        btn.addEventListener('click', () => regenerateOne(visit.visitId, btn));
+        pdfTd.appendChild(btn);
+      }
+      tr.appendChild(pdfTd);
+
+      const signedTd = document.createElement('td');
+      const pill = document.createElement('span');
+      if (visit.signedChecklistUrl) {
+        pill.className = 'pill done'; pill.textContent = '✅ पूर्ण';
+        signedTd.appendChild(pill);
+        const a = document.createElement('a');
+        a.href = visit.signedChecklistUrl; a.target = '_blank'; a.textContent = ' पहा';
+        a.style.cssText = 'color:#1E315C;font-size:11px;margin-left:6px;';
+        signedTd.appendChild(a);
+      } else {
+        pill.className = 'pill pending'; pill.textContent = '⏳ प्रलंबित';
+        signedTd.appendChild(pill);
+      }
+      tr.appendChild(signedTd);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function regenerateOne(visitId, btn) {
+    btn.disabled = true; btn.textContent = 'तयार करत आहे...';
+    const response = await regeneratePDF(visitId);
+    if (response.success) {
+      loadVisitsTable();
+    } else {
+      btn.disabled = false; btn.textContent = '🔄 तयार करा';
+      Swal.fire({ icon: 'error', title: 'अयशस्वी', text: response.message });
+    }
+  }
+</script>
+</body>
+</html>
