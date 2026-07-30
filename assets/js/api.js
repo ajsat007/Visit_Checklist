@@ -25,7 +25,7 @@ export async function apiCall(action, params = {}) {
   if (token && action !== 'login') {
     body.token = token;
   }
-  if (['login', 'logout', 'submitVisit', 'uploadSignedChecklist'].includes(action)) {
+  if (['login', 'logout', 'submitVisit', 'uploadSignedChecklist', 'uploadVisitPhoto'].includes(action)) {
     Object.assign(body, deviceInfo());
   }
 
@@ -91,6 +91,8 @@ export const regeneratePDF = (visitId) => apiCall('regeneratePDF', { visitId });
 // ---- Uploads ----
 export const uploadSignedChecklist = (visitId, fileData, fileName, mimeType) =>
   apiCall('uploadSignedChecklist', { visitId, fileData, fileName, mimeType });
+export const uploadVisitPhoto = (visitId, photoType, fileData, mimeType) =>
+  apiCall('uploadVisitPhoto', { visitId, photoType, fileData, mimeType });
 
 // ---- Dashboard ----
 export const getDashboard = () => apiCall('dashboard', {});
