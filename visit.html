@@ -145,15 +145,11 @@
           <label class="field-label">भेट दिनांक</label>
           <input class="input" id="visitDate" readonly>
         </div>
-        <div>
-          <label class="field-label">भेट वेळ</label>
-          <input class="input" id="visitTime" readonly>
-        </div>
+        <!-- Visit Time is still captured and submitted, just not shown on screen -->
+        <input type="hidden" id="visitTime">
       </div>
-      <div>
-        <label class="field-label">GPS स्थान</label>
-        <div id="gpsStatus" class="gps-status">📡 GPS स्थान घेत आहे...</div>
-      </div>
+      <!-- GPS is still captured and submitted, just not shown on screen -->
+      <div id="gpsStatus" class="hidden-force"></div>
     </div>
 
     <!-- Before/After Photos (optional) -->
