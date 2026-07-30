@@ -457,6 +457,8 @@
 
       if (response.success) {
         showResultPanel(response);
+      } else if (response.duplicate) {
+        Swal.fire({ icon: 'warning', title: 'आधीच नोंदवले आहे', text: response.message });
       } else {
         Swal.fire({ icon: 'error', title: 'सबमिट अयशस्वी', text: response.message });
       }
