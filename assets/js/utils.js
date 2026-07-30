@@ -84,6 +84,44 @@ export function fileToBase64(file) {
 }
 
 /**
+ * Resizes + re-compresses an image before upload. Mobile camera photos are
+ * routinely 3-8MB at full resolution — for a reference photo attached to a
+ * checklist, that's pure wasted upload time and Drive storage. Resizes to
+ * fit within maxDimension (long edge) and re-encodes as JPEG at the given
+ * quality. Returns { base64, mimeType } ready for the upload API.
+ * Falls back to the original file (still base64-encoded) if compression
+ * fails for any reason — never blocks the actual upload over this.
+ */
+export async function compressImage(file, maxDimension = 1600, quality = 0.75) {
+  try {
+    const bitmap = await createImageBitmap(file);
+    let { width, height } = bitmap;
+
+    if (width > maxDimension || height > maxDimension) {
+      const scale = maxDimension / Math.max(width, height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, width, height);
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+    if (!blob) throw new Error('canvas.toBlob returned null');
+
+    const base64 = await fileToBase64(blob);
+    return { base64, mimeType: 'image/jpeg' };
+  } catch (error) {
+    console.warn('Image compression skipped, uploading original:', error.message);
+    const base64 = await fileToBase64(file);
+    return { base64, mimeType: file.type || 'image/jpeg' };
+  }
+}
+
+/**
  * Validates a signed-checklist file against type/size before it's ever
  * base64-encoded and sent — mirrors the server-side check in
  * TourVisit_Backend.gs so the user gets instant feedback instead of a
