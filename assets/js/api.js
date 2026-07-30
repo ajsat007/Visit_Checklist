@@ -70,10 +70,9 @@ async function requestWithRetry(options, attempt) {
 }
 
 // ---- Auth ----
-export const login = (employeeId, password) => apiCall('login', { employeeId, password });
+export const login = (employeeId) => apiCall('login', { employeeId });
 export const logout = () => apiCall('logout', {});
 export const validateSession = () => apiCall('validateSession', {});
-export const changePassword = (oldPassword, newPassword) => apiCall('changePassword', { oldPassword, newPassword });
 
 // ---- Master data ----
 export const getDistricts = () => apiCall('districts', {});
