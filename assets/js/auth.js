@@ -92,6 +92,19 @@ export function requireRole(role) {
   return true;
 }
 
+/**
+ * Same as requireRole but accepts a list of allowed roles.
+ */
+export function requireAnyRole(roles) {
+  if (!requireAuth()) return false;
+  const user = getUser();
+  if (!user || !roles.includes(user.role)) {
+    window.location.href = 'visit.html';
+    return false;
+  }
+  return true;
+}
+
 export function logoutAndRedirect() {
   clearSession();
   window.location.href = 'index.html';
