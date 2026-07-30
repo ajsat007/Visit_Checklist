@@ -156,6 +156,26 @@
       </div>
     </div>
 
+    <!-- Before/After Photos (optional) -->
+    <div class="card">
+      <div class="section-title">📷 फोटो (ऐच्छिक)</div>
+      <p class="text-xs mb-3" style="color:#94a3b8;">आत्ता किंवा नंतर — कधीही जोडता येतील. न जोडताही सबमिट करता येईल.</p>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="field-label">आधीचा फोटो (Before)</label>
+          <input type="file" accept="image/*" capture="environment" id="beforePhotoInput" class="hidden-force">
+          <button type="button" id="beforePhotoBtn" class="btn-secondary" style="padding:10px;font-size:13px;">📷 निवडा</button>
+          <img id="beforePhotoPreview" class="hidden-force mt-2" style="width:100%;height:90px;object-fit:cover;border-radius:8px;">
+        </div>
+        <div>
+          <label class="field-label">नंतरचा फोटो (After)</label>
+          <input type="file" accept="image/*" capture="environment" id="afterPhotoInput" class="hidden-force">
+          <button type="button" id="afterPhotoBtn" class="btn-secondary" style="padding:10px;font-size:13px;">📷 निवडा</button>
+          <img id="afterPhotoPreview" class="hidden-force mt-2" style="width:100%;height:90px;object-fit:cover;border-radius:8px;">
+        </div>
+      </div>
+    </div>
+
     <!-- Checklist -->
     <div id="checklistContainer">
       <div class="card text-center text-sm" style="color:#94a3b8;">चेकलिस्ट लोड होत आहे...</div>
@@ -194,6 +214,14 @@
       <button type="button" id="retryPdfBtn" class="btn-secondary hidden-force" style="background:#64748b;">🔄 PDF पुन्हा तयार करा</button>
     </div>
 
+    <div class="border-t pt-4 mb-4" style="border-color:#e2e8f0;">
+      <div class="section-title" style="margin-bottom:8px;">📷 फोटो</div>
+      <div class="grid grid-cols-2 gap-3">
+        <div id="resultBeforePhotoSlot"></div>
+        <div id="resultAfterPhotoSlot"></div>
+      </div>
+    </div>
+
     <div class="border-t pt-4" style="border-color:#e2e8f0;">
       <div class="section-title" style="margin-bottom:8px;">📤 सही केलेली चेकलिस्ट अपलोड करा</div>
       <p class="text-xs mb-3" style="color:#94a3b8;">PDF डाउनलोड करा → प्रिंट घ्या → सही व शिक्का घ्या → स्कॅन/फोटो अपलोड करा (PDF/JPG/PNG)</p>
@@ -220,8 +248,8 @@
 
 <script type="module">
   import { requireAuth, getUser, getFormattedRemainingTime, logoutAndRedirect } from './assets/js/auth.js';
-  import { getDistricts, getBusStations, getChecklist, submitVisit, uploadSignedChecklist, regeneratePDF } from './assets/js/api.js';
-  import { escapeHtml, getCurrentPosition, reverseGeocode, fileToBase64, validateSignedChecklistFile, formatDateTime, formatTime } from './assets/js/utils.js';
+  import { getDistricts, getBusStations, getChecklist, submitVisit, uploadSignedChecklist, uploadVisitPhoto, regeneratePDF } from './assets/js/api.js';
+  import { escapeHtml, getCurrentPosition, reverseGeocode, fileToBase64, compressImage, validateSignedChecklistFile, formatDateTime, formatTime } from './assets/js/utils.js';
 
   if (!requireAuth()) { throw new Error('redirecting'); }
 
@@ -230,6 +258,8 @@
   let currentAnswers = {};     // questionId -> 'होय' | 'नाही'
   let gpsData = null;
   let lastVisitId = null;
+  let beforePhotoFile = null;  // selected but not yet uploaded — independent of currentAnswers
+  let afterPhotoFile = null;
 
   init();
 
@@ -244,6 +274,25 @@
     document.getElementById('newVisitBtn').addEventListener('click', resetForNewVisit);
     document.getElementById('uploadSignedBtn').addEventListener('click', onUploadSigned);
     document.getElementById('retryPdfBtn').addEventListener('click', onRetryPdf);
+    setupPhotoPickers();
+  }
+
+  function setupPhotoPickers() {
+    document.getElementById('beforePhotoBtn').addEventListener('click', () => document.getElementById('beforePhotoInput').click());
+    document.getElementById('afterPhotoBtn').addEventListener('click', () => document.getElementById('afterPhotoInput').click());
+    document.getElementById('beforePhotoInput').addEventListener('change', (e) => onPhotoPicked('before', e.target.files[0]));
+    document.getElementById('afterPhotoInput').addEventListener('change', (e) => onPhotoPicked('after', e.target.files[0]));
+  }
+
+  // Only ever touches the local file variable + its own preview <img> —
+  // never form fields, never currentAnswers. Selecting a photo here can
+  // never wipe out checklist answers already given.
+  function onPhotoPicked(type, file) {
+    if (!file) return;
+    if (type === 'before') beforePhotoFile = file; else afterPhotoFile = file;
+    const preview = document.getElementById(type + 'PhotoPreview');
+    preview.src = URL.createObjectURL(file);
+    preview.classList.remove('hidden-force');
   }
 
   function fillOfficerInfo() {
@@ -483,31 +532,146 @@
 
     const downloadBtn = document.getElementById('downloadPdfBtn');
     const retryBtn = document.getElementById('retryPdfBtn');
-    if (response.pdfGenerated && response.pdfUrl) {
+    downloadBtn.classList.add('hidden-force');
+    retryBtn.classList.add('hidden-force');
+    document.getElementById('resultSubtext').textContent = '📄 PDF तयार होत आहे, कृपया थांबा...';
+    panel.scrollIntoView({ behavior: 'smooth' });
+
+    // Automatic — no button click needed. The visit is already saved by
+    // this point; this just fetches the PDF that generates in the
+    // background, so "submit" itself stays fast.
+    generatePdfNow(response.visitId);
+    autoUploadQueuedPhotos(response.visitId);
+  }
+
+  async function generatePdfNow(visitId) {
+    const downloadBtn = document.getElementById('downloadPdfBtn');
+    const retryBtn = document.getElementById('retryPdfBtn');
+    const response = await regeneratePDF(visitId);
+
+    if (response.success) {
       downloadBtn.href = response.pdfUrl;
       downloadBtn.classList.remove('hidden-force');
       retryBtn.classList.add('hidden-force');
-      document.getElementById('resultSubtext').textContent = 'PDF तयार झाला आहे.';
+      document.getElementById('resultSubtext').textContent = '✅ PDF तयार झाला आहे.';
     } else {
       downloadBtn.classList.add('hidden-force');
       retryBtn.classList.remove('hidden-force');
+      retryBtn.disabled = false;
+      retryBtn.textContent = '🔄 PDF पुन्हा तयार करा';
       document.getElementById('resultSubtext').textContent = 'PDF तयार करताना अडचण आली — पुन्हा प्रयत्न करा.';
     }
-    panel.scrollIntoView({ behavior: 'smooth' });
   }
 
   async function onRetryPdf() {
     const btn = document.getElementById('retryPdfBtn');
     btn.disabled = true; btn.textContent = 'तयार करत आहे...';
-    const response = await regeneratePDF(lastVisitId);
-    if (response.success) {
-      document.getElementById('downloadPdfBtn').href = response.pdfUrl;
-      document.getElementById('downloadPdfBtn').classList.remove('hidden-force');
-      btn.classList.add('hidden-force');
-      document.getElementById('resultSubtext').textContent = 'PDF तयार झाला आहे.';
+    document.getElementById('resultSubtext').textContent = '📄 PDF तयार होत आहे, कृपया थांबा...';
+    await generatePdfNow(lastVisitId);
+  }
+
+  const PHOTO_SLOT_IDS = { before: 'resultBeforePhotoSlot', after: 'resultAfterPhotoSlot' };
+  const PHOTO_LABELS = { before: 'आधीचा फोटो', after: 'नंतरचा फोटो' };
+
+  // state: 'empty' | 'uploading' | 'done' | 'error'
+  function renderPhotoSlot(type, state, url) {
+    const container = document.getElementById(PHOTO_SLOT_IDS[type]);
+    container.innerHTML = '';
+
+    const label = document.createElement('div');
+    label.className = 'text-xs font-semibold mb-1';
+    label.style.color = '#64748b';
+    label.textContent = PHOTO_LABELS[type];
+    container.appendChild(label);
+
+    if (state === 'done' && url) {
+      const img = document.createElement('img');
+      img.src = url;
+      img.style.cssText = 'width:100%;height:90px;object-fit:cover;border-radius:8px;cursor:pointer;';
+      img.title = 'मोठे पाहण्यासाठी क्लिक करा';
+      img.addEventListener('click', () => window.open(url, '_blank'));
+      container.appendChild(img);
+      return;
+    }
+
+    if (state === 'uploading') {
+      const status = document.createElement('div');
+      status.className = 'gps-status';
+      status.style.fontSize = '12px';
+      status.textContent = '⏳ अपलोड होत आहे...';
+      container.appendChild(status);
+      return;
+    }
+
+    // 'empty' or 'error' — show an add/retry control
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.setAttribute('capture', 'environment');
+    input.className = 'input mb-2';
+    input.style.cssText = 'font-size:12px;padding:8px;';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-secondary';
+    btn.style.cssText = 'padding:8px;font-size:12px;';
+    btn.textContent = state === 'error' ? '⚠️ पुन्हा प्रयत्न करा' : '+ जोडा';
+    btn.addEventListener('click', () => {
+      const file = input.files[0];
+      if (!file) {
+        Swal.fire({ icon: 'warning', title: 'फोटो निवडा' });
+        return;
+      }
+      uploadResultPhoto(type, file);
+    });
+
+    container.appendChild(input);
+    container.appendChild(btn);
+  }
+
+  async function uploadResultPhoto(type, file) {
+    renderPhotoSlot(type, 'uploading');
+    try {
+      const { base64, mimeType } = await compressImage(file);
+      const response = await uploadVisitPhoto(lastVisitId, type, base64, mimeType);
+      if (response.success) {
+        renderPhotoSlot(type, 'done', response.url);
+      } else {
+        Swal.fire({ icon: 'error', title: 'अपलोड अयशस्वी', text: response.message });
+        renderPhotoSlot(type, 'error');
+      }
+    } catch (error) {
+      Swal.fire({ icon: 'error', title: 'त्रुटी', text: error.message });
+      renderPhotoSlot(type, 'error');
+    }
+  }
+
+  // Called automatically right after a successful submit — uploads
+  // whichever of before/after was already picked in the form, and shows
+  // an "add now" control for whichever wasn't, so either can still be
+  // added later from this same panel.
+  async function autoUploadQueuedPhotos(visitId) {
+    if (beforePhotoFile) {
+      renderPhotoSlot('before', 'uploading');
+      uploadQueuedPhoto('before', beforePhotoFile, visitId);
     } else {
-      Swal.fire({ icon: 'error', title: 'पुन्हा प्रयत्न अयशस्वी', text: response.message });
-      btn.disabled = false; btn.textContent = '🔄 PDF पुन्हा तयार करा';
+      renderPhotoSlot('before', 'empty');
+    }
+    if (afterPhotoFile) {
+      renderPhotoSlot('after', 'uploading');
+      uploadQueuedPhoto('after', afterPhotoFile, visitId);
+    } else {
+      renderPhotoSlot('after', 'empty');
+    }
+  }
+
+  async function uploadQueuedPhoto(type, file, visitId) {
+    try {
+      const { base64, mimeType } = await compressImage(file);
+      const response = await uploadVisitPhoto(visitId, type, base64, mimeType);
+      renderPhotoSlot(type, response.success ? 'done' : 'error', response.url);
+    } catch (error) {
+      renderPhotoSlot(type, 'error');
     }
   }
 
@@ -558,6 +722,14 @@
     document.querySelectorAll('.yn-btn.active').forEach((b) => b.classList.remove('active'));
     document.getElementById('busStation').innerHTML = '<option value="">आधी जिल्हा निवडा</option>';
     document.getElementById('busStation').disabled = true;
+
+    beforePhotoFile = null;
+    afterPhotoFile = null;
+    document.getElementById('beforePhotoPreview').classList.add('hidden-force');
+    document.getElementById('afterPhotoPreview').classList.add('hidden-force');
+    document.getElementById('beforePhotoInput').value = '';
+    document.getElementById('afterPhotoInput').value = '';
+
     updateProgress();
     captureGps();
     window.scrollTo({ top: 0, behavior: 'smooth' });
