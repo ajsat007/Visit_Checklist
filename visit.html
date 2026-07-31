@@ -142,8 +142,8 @@
           </select>
         </div>
         <div>
-          <label class="field-label">भेट दिनांक</label>
-          <input class="input" id="visitDate" readonly>
+          <label class="field-label">भेट दिनांक *</label>
+          <input type="date" class="input" id="visitDate" required>
         </div>
         <!-- Visit Time is still captured and submitted, just not shown on screen -->
         <input type="hidden" id="visitTime">
@@ -302,10 +302,13 @@
   }
 
   function setupClock() {
+    const dateInput = document.getElementById('visitDate');
+    const todayStr = formatDateTime(new Date());
+    dateInput.max = todayStr; // no future-dated visits
+    dateInput.value = todayStr; // sensible default — editable from here, user can pick any past date
+
     const tick = () => {
-      const now = new Date();
-      document.getElementById('visitDate').value = formatDateTime(now);
-      document.getElementById('visitTime').value = formatTime(now);
+      document.getElementById('visitTime').value = formatTime(new Date());
       document.getElementById('sessionTime').textContent = 'सत्र: ' + getFormattedRemainingTime();
     };
     tick();
@@ -504,10 +507,13 @@
       Swal.fire({ icon: 'warning', title: 'जिल्हा आणि बस स्टेशन निवडा' });
       return;
     }
-    if (!gpsData) {
-      Swal.fire({ icon: 'warning', title: 'कृपया GPS स्थान मिळेपर्यंत थांबा', text: 'किंवा "पुन्हा प्रयत्न करा" दाबा' });
+    if (!document.getElementById('visitDate').value) {
+      Swal.fire({ icon: 'warning', title: 'भेट दिनांक निवडा' });
       return;
     }
+    // GPS is optional — if it wasn't captured (denied, unavailable, or
+    // still in progress), submission proceeds anyway with blank
+    // latitude/longitude/address rather than blocking the officer.
     const unanswered = checklistQuestions.filter((q) => !isQuestionAnswered(q.questionId));
     if (unanswered.length > 0) {
       const allJustMissingRemark = unanswered.every((q) => currentAnswers[q.questionId] && currentAnswers[q.questionId].answer === 'नाही');
@@ -537,7 +543,9 @@
         district, busStation,
         visitDate: document.getElementById('visitDate').value,
         visitTime: document.getElementById('visitTime').value,
-        latitude: gpsData.latitude, longitude: gpsData.longitude, gpsAddress: gpsData.address,
+        latitude: gpsData ? gpsData.latitude : '',
+        longitude: gpsData ? gpsData.longitude : '',
+        gpsAddress: gpsData ? gpsData.address : '',
         overallRemark: document.getElementById('overallRemark').value
       }, responses);
 
@@ -760,6 +768,7 @@
     document.querySelectorAll('#checklistContainer textarea').forEach((t) => t.classList.add('hidden-force'));
     document.getElementById('busStation').innerHTML = '<option value="">आधी जिल्हा निवडा</option>';
     document.getElementById('busStation').disabled = true;
+    document.getElementById('visitDate').value = formatDateTime(new Date());
 
     beforePhotoFile = null;
     afterPhotoFile = null;
