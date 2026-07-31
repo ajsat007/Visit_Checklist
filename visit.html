@@ -403,13 +403,27 @@
         const noBtn = document.createElement('button');
         noBtn.type = 'button'; noBtn.className = 'yn-btn no'; noBtn.textContent = '❌ नाही';
 
-        yesBtn.addEventListener('click', () => selectAnswer(q.questionId, 'होय', yesBtn, noBtn));
-        noBtn.addEventListener('click', () => selectAnswer(q.questionId, 'नाही', noBtn, yesBtn));
+        // Required whenever नाही is selected — hidden otherwise. Selecting
+        // होय clears and hides it again, since a remark only makes sense
+        // attached to a "no" answer.
+        const remarkBox = document.createElement('textarea');
+        remarkBox.className = 'input hidden-force mt-2';
+        remarkBox.rows = 2;
+        remarkBox.style.fontSize = '13px';
+        remarkBox.placeholder = 'कारण लिहा... (आवश्यक)';
+        remarkBox.addEventListener('input', () => {
+          if (currentAnswers[q.questionId]) currentAnswers[q.questionId].remark = remarkBox.value;
+          updateProgress();
+        });
+
+        yesBtn.addEventListener('click', () => selectAnswer(q.questionId, 'होय', yesBtn, noBtn, remarkBox));
+        noBtn.addEventListener('click', () => selectAnswer(q.questionId, 'नाही', noBtn, yesBtn, remarkBox));
 
         ynGroup.appendChild(yesBtn);
         ynGroup.appendChild(noBtn);
         row.appendChild(questionText);
         row.appendChild(ynGroup);
+        row.appendChild(remarkBox);
         list.appendChild(row);
       });
 
@@ -420,16 +434,35 @@
     updateProgress();
   }
 
-  function selectAnswer(questionId, value, activeBtn, otherBtn) {
-    currentAnswers[questionId] = value;
+  function selectAnswer(questionId, value, activeBtn, otherBtn, remarkBox) {
+    if (!currentAnswers[questionId]) currentAnswers[questionId] = {};
+    currentAnswers[questionId].answer = value;
     activeBtn.classList.add('active');
     otherBtn.classList.remove('active');
+
+    if (value === 'नाही') {
+      remarkBox.classList.remove('hidden-force');
+    } else {
+      remarkBox.classList.add('hidden-force');
+      remarkBox.value = '';
+      currentAnswers[questionId].remark = '';
+    }
     updateProgress();
+  }
+
+  // A question counts as "answered" only once it has a real answer, and —
+  // if that answer is नाही — a non-empty remark too. Shared by both the
+  // progress bar and the submit-time validation so they never disagree.
+  function isQuestionAnswered(questionId) {
+    const a = currentAnswers[questionId];
+    if (!a || !a.answer) return false;
+    if (a.answer === 'नाही') return !!(a.remark && a.remark.trim());
+    return true;
   }
 
   function updateProgress() {
     const total = checklistQuestions.length;
-    const answered = Object.keys(currentAnswers).length;
+    const answered = checklistQuestions.filter((q) => isQuestionAnswered(q.questionId)).length;
     document.getElementById('progressText').textContent = `${answered}/${total}`;
     document.getElementById('progressFill').style.width = total ? `${(answered / total) * 100}%` : '0%';
   }
@@ -475,8 +508,14 @@
       Swal.fire({ icon: 'warning', title: 'कृपया GPS स्थान मिळेपर्यंत थांबा', text: 'किंवा "पुन्हा प्रयत्न करा" दाबा' });
       return;
     }
-    if (Object.keys(currentAnswers).length < checklistQuestions.length) {
-      Swal.fire({ icon: 'warning', title: 'सर्व प्रश्नांची उत्तरे द्या', text: `${checklistQuestions.length - Object.keys(currentAnswers).length} प्रश्न बाकी आहेत` });
+    const unanswered = checklistQuestions.filter((q) => !isQuestionAnswered(q.questionId));
+    if (unanswered.length > 0) {
+      const allJustMissingRemark = unanswered.every((q) => currentAnswers[q.questionId] && currentAnswers[q.questionId].answer === 'नाही');
+      if (allJustMissingRemark) {
+        Swal.fire({ icon: 'warning', title: 'शेरा आवश्यक आहे', text: `"नाही" दिलेल्या ${unanswered.length} प्रश्नांसाठी शेरा लिहा` });
+      } else {
+        Swal.fire({ icon: 'warning', title: 'सर्व प्रश्नांची उत्तरे द्या', text: `${unanswered.length} प्रश्न बाकी आहेत` });
+      }
       return;
     }
 
@@ -489,7 +528,9 @@
     setSubmitting(true);
     try {
       const responses = checklistQuestions.map((q) => ({
-        questionId: q.questionId, question: q.question, category: q.category, answer: currentAnswers[q.questionId]
+        questionId: q.questionId, question: q.question, category: q.category,
+        answer: currentAnswers[q.questionId].answer,
+        remark: currentAnswers[q.questionId].remark || ''
       }));
 
       const response = await submitVisit({
@@ -716,6 +757,7 @@
     document.getElementById('visitForm').reset();
     currentAnswers = {};
     document.querySelectorAll('.yn-btn.active').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('#checklistContainer textarea').forEach((t) => t.classList.add('hidden-force'));
     document.getElementById('busStation').innerHTML = '<option value="">आधी जिल्हा निवडा</option>';
     document.getElementById('busStation').disabled = true;
 
