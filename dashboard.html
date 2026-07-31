@@ -99,10 +99,11 @@
     <div class="card"><div class="font-bold text-sm mb-3" style="color:var(--navy);">जिल्हा-वार भेटी</div><div class="chart-wrap"><canvas id="chartDistrict"></canvas></div></div>
     <div class="card"><div class="font-bold text-sm mb-3" style="color:var(--navy);">मासिक कल</div><div class="chart-wrap"><canvas id="chartMonthly"></canvas></div></div>
   </div>
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
     <div class="card"><div class="font-bold text-sm mb-3" style="color:var(--navy);">PM-वार</div><div class="chart-wrap" style="height:200px;"><canvas id="chartPM"></canvas></div></div>
     <div class="card"><div class="font-bold text-sm mb-3" style="color:var(--navy);">DM-वार</div><div class="chart-wrap" style="height:200px;"><canvas id="chartDM"></canvas></div></div>
     <div class="card"><div class="font-bold text-sm mb-3" style="color:var(--navy);">ADM-वार</div><div class="chart-wrap" style="height:200px;"><canvas id="chartADM"></canvas></div></div>
+    <div class="card"><div class="font-bold text-sm mb-3" style="color:var(--navy);">AGM-वार</div><div class="chart-wrap" style="height:200px;"><canvas id="chartAGM"></canvas></div></div>
   </div>
 
   <!-- Search & Filters -->
@@ -115,7 +116,7 @@
       <div><label class="text-xs font-semibold" style="color:#64748b;">जिल्हा</label><select class="input" id="filterDistrict"><option value="">सर्व</option></select></div>
       <div><label class="text-xs font-semibold" style="color:#64748b;">भूमिका</label>
         <select class="input" id="filterRole">
-          <option value="">सर्व</option><option value="PM">PM</option><option value="DM">DM</option><option value="ADM">ADM</option>
+          <option value="">सर्व</option><option value="PM">PM</option><option value="DM">DM</option><option value="ADM">ADM</option><option value="AGM">AGM</option>
         </select>
       </div>
       <div><label class="text-xs font-semibold" style="color:#64748b;">पासून</label><input type="date" class="input" id="filterDateFrom"></div>
@@ -222,6 +223,7 @@
     renderBarChart('chartPM', d.charts.pmWise, GREEN);
     renderBarChart('chartDM', d.charts.dmWise, PURPLE);
     renderBarChart('chartADM', d.charts.admWise, RED);
+    renderBarChart('chartAGM', d.charts.agmWise, '#0891b2');
   }
 
   function chartTextColor() { return isDark() ? '#94a3b8' : '#475569'; }
