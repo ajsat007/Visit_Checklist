@@ -296,7 +296,7 @@
     document.getElementById('infoName').value = user.name || '';
     document.getElementById('infoDesignation').value = user.designation || '';
     document.getElementById('infoDistrict').value = user.district || '—';
-    if (user.role === 'Admin' || user.role === 'PM') {
+    if (user.role === 'Admin') {
       document.getElementById('dashboardLink').classList.remove('hidden-force');
     }
   }
