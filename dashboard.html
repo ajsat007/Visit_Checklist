@@ -159,16 +159,15 @@
 </script>
 
 <script type="module">
-  import { requireAnyRole, getUser, logoutAndRedirect } from './assets/js/auth.js';
+  import { requireRole, getUser, logoutAndRedirect } from './assets/js/auth.js';
   import { getDashboard, getDistricts, getAllVisits, regeneratePDF } from './assets/js/api.js';
   import { escapeHtml } from './assets/js/utils.js';
 
-  if (!requireAnyRole(['Admin', 'PM'])) { throw new Error('redirecting'); }
+  if (!requireRole('Admin')) { throw new Error('redirecting'); }
 
   const user = getUser();
   document.getElementById('userLabel').textContent = `${user.name} · ${user.role}`;
-  document.getElementById('dashboardSubtitle').textContent =
-    user.role === 'Admin' ? 'Admin Dashboard — सर्व जिल्हे' : `PM Dashboard — ${user.district || ''}`;
+  document.getElementById('dashboardSubtitle').textContent = 'Admin Dashboard — सर्व जिल्हे';
   document.getElementById('logoutBtn').addEventListener('click', () => {
     Swal.fire({ title: 'बाहेर पडायचे आहे का?', icon: 'question', showCancelButton: true, confirmButtonText: 'होय', cancelButtonText: 'रद्द करा' })
       .then((r) => { if (r.isConfirmed) logoutAndRedirect(); });
