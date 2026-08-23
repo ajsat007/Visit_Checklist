@@ -89,6 +89,28 @@
   }
 
   .hidden-force { display:none !important; }
+
+  /* 5-star rating widget — shown under a "तपासावी/तपासाव्यात" question once होय is selected */
+  .star-group { display:flex; gap:4px; margin-top:10px; }
+  .star-btn {
+    background:none; border:none; cursor:pointer; padding:0; line-height:1;
+    font-size:28px; color:#e2e8f0; transition:color .15s, transform .1s;
+  }
+  .star-btn:hover { transform:scale(1.08); }
+  .star-btn.filled { color:var(--yellow); }
+  html.dark .star-btn { color:#334155; }
+  html.dark .star-btn.filled { color:var(--yellow); }
+  .rating-hint { font-size:12px; color:#94a3b8; margin-top:4px; }
+  .rating-hint.required { color:#b91c1c; }
+
+  /* Multi-select checkbox group — used for the "अडचणी असल्यास खालील पर्याय टिक करावा" question */
+  .check-group { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .check-option {
+    display:flex; align-items:center; gap:9px; padding:9px 12px; border-radius:10px;
+    border:1.5px solid #e2e8f0; background:#fff; cursor:pointer; font-size:13.5px; color:#1e293b;
+  }
+  html.dark .check-option { background:#0f172a; border-color:#26314a; color:#e5e9f2; }
+  .check-option input[type="checkbox"] { width:16px; height:16px; accent-color:var(--navy); flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -152,26 +174,6 @@
       <div id="gpsStatus" class="hidden-force"></div>
     </div>
 
-    <!-- Before/After Photos (optional) -->
-    <div class="card">
-      <div class="section-title">📷 फोटो (ऐच्छिक)</div>
-      <p class="text-xs mb-3" style="color:#94a3b8;">आत्ता किंवा नंतर — कधीही जोडता येतील. न जोडताही सबमिट करता येईल.</p>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="field-label">आधीचा फोटो (Before)</label>
-          <input type="file" accept="image/*" capture="environment" id="beforePhotoInput" class="hidden-force">
-          <button type="button" id="beforePhotoBtn" class="btn-secondary" style="padding:10px;font-size:13px;">📷 निवडा</button>
-          <img id="beforePhotoPreview" class="hidden-force mt-2" style="width:100%;height:90px;object-fit:cover;border-radius:8px;">
-        </div>
-        <div>
-          <label class="field-label">नंतरचा फोटो (After)</label>
-          <input type="file" accept="image/*" capture="environment" id="afterPhotoInput" class="hidden-force">
-          <button type="button" id="afterPhotoBtn" class="btn-secondary" style="padding:10px;font-size:13px;">📷 निवडा</button>
-          <img id="afterPhotoPreview" class="hidden-force mt-2" style="width:100%;height:90px;object-fit:cover;border-radius:8px;">
-        </div>
-      </div>
-    </div>
-
     <!-- Checklist -->
     <div id="checklistContainer">
       <div class="card text-center text-sm" style="color:#94a3b8;">चेकलिस्ट लोड होत आहे...</div>
@@ -210,14 +212,6 @@
       <button type="button" id="retryPdfBtn" class="btn-secondary hidden-force" style="background:#64748b;">🔄 PDF पुन्हा तयार करा</button>
     </div>
 
-    <div class="border-t pt-4 mb-4" style="border-color:#e2e8f0;">
-      <div class="section-title" style="margin-bottom:8px;">📷 फोटो</div>
-      <div class="grid grid-cols-2 gap-3">
-        <div id="resultBeforePhotoSlot"></div>
-        <div id="resultAfterPhotoSlot"></div>
-      </div>
-    </div>
-
     <div class="border-t pt-4" style="border-color:#e2e8f0;">
       <div class="section-title" style="margin-bottom:8px;">📤 सही केलेली चेकलिस्ट अपलोड करा</div>
       <p class="text-xs mb-3" style="color:#94a3b8;">PDF डाउनलोड करा → प्रिंट घ्या → सही व शिक्का घ्या → स्कॅन/फोटो अपलोड करा (PDF/JPG/PNG)</p>
@@ -244,8 +238,8 @@
 
 <script type="module">
   import { requireAuth, getUser, getFormattedRemainingTime, logoutAndRedirect } from './assets/js/auth.js';
-  import { getDistricts, getBusStations, getChecklist, submitVisit, uploadSignedChecklist, uploadVisitPhoto, regeneratePDF } from './assets/js/api.js';
-  import { escapeHtml, getCurrentPosition, reverseGeocode, fileToBase64, compressImage, validateSignedChecklistFile, formatDateTime, formatTime } from './assets/js/utils.js';
+  import { getDistricts, getBusStations, getChecklist, submitVisit, uploadSignedChecklist, regeneratePDF } from './assets/js/api.js';
+  import { escapeHtml, getCurrentPosition, reverseGeocode, fileToBase64, validateSignedChecklistFile, formatDateTime, formatTime } from './assets/js/utils.js';
 
   if (!requireAuth()) { throw new Error('redirecting'); }
 
@@ -254,8 +248,6 @@
   let currentAnswers = {};     // questionId -> 'होय' | 'नाही'
   let gpsData = null;
   let lastVisitId = null;
-  let beforePhotoFile = null;  // selected but not yet uploaded — independent of currentAnswers
-  let afterPhotoFile = null;
 
   init();
 
@@ -270,25 +262,6 @@
     document.getElementById('newVisitBtn').addEventListener('click', resetForNewVisit);
     document.getElementById('uploadSignedBtn').addEventListener('click', onUploadSigned);
     document.getElementById('retryPdfBtn').addEventListener('click', onRetryPdf);
-    setupPhotoPickers();
-  }
-
-  function setupPhotoPickers() {
-    document.getElementById('beforePhotoBtn').addEventListener('click', () => document.getElementById('beforePhotoInput').click());
-    document.getElementById('afterPhotoBtn').addEventListener('click', () => document.getElementById('afterPhotoInput').click());
-    document.getElementById('beforePhotoInput').addEventListener('change', (e) => onPhotoPicked('before', e.target.files[0]));
-    document.getElementById('afterPhotoInput').addEventListener('change', (e) => onPhotoPicked('after', e.target.files[0]));
-  }
-
-  // Only ever touches the local file variable + its own preview <img> —
-  // never form fields, never currentAnswers. Selecting a photo here can
-  // never wipe out checklist answers already given.
-  function onPhotoPicked(type, file) {
-    if (!file) return;
-    if (type === 'before') beforePhotoFile = file; else afterPhotoFile = file;
-    const preview = document.getElementById(type + 'PhotoPreview');
-    preview.src = URL.createObjectURL(file);
-    preview.classList.remove('hidden-force');
   }
 
   function fillOfficerInfo() {
@@ -363,6 +336,29 @@
     stationSelect.disabled = false;
   }
 
+  // Questions containing either of these words require a 5-star rating
+  // (shown once होय is selected) in addition to the होय/नाही answer.
+  const RATING_KEYWORDS = ['तपासावी', 'तपासाव्यात', 'तपासावे'];
+  function isRatingQuestion(questionText) {
+    return RATING_KEYWORDS.some((kw) => (questionText || '').indexOf(kw) !== -1);
+  }
+
+  // The "कर्मचाऱ्यांच्या अडचणी" question gets a multi-select checkbox group
+  // instead of/alongside the normal answer, for ticking which difficulty
+  // categories (if any) came up. Labels are placeholders — update
+  // DIFFICULTY_OPTIONS below with the final option text; no other code
+  // needs to change when you do.
+  const DIFFICULTY_KEYWORD = 'अडचणी असल्यास खालील पर्याय टिक करावा';
+  function isDifficultyQuestion(questionText) {
+    return (questionText || '').indexOf(DIFFICULTY_KEYWORD) !== -1;
+  }
+  const DIFFICULTY_OPTIONS = [
+    'पर्याय १ — (अपडेट प्रलंबित)',
+    'पर्याय २ — (अपडेट प्रलंबित)',
+    'पर्याय ३ — (अपडेट प्रलंबित)',
+    'पर्याय ४ — (अपडेट प्रलंबित)'
+  ];
+
   async function loadChecklist() {
     const response = await getChecklist();
     const container = document.getElementById('checklistContainer');
@@ -387,6 +383,8 @@
       list.className = 'space-y-3';
 
       response.data.questions[category].forEach((q) => {
+        const rating = isRatingQuestion(q.question);
+        const difficulty = isDifficultyQuestion(q.question);
         checklistQuestions.push(q);
 
         const row = document.createElement('div');
@@ -419,14 +417,67 @@
           updateProgress();
         });
 
-        yesBtn.addEventListener('click', () => selectAnswer(q.questionId, 'होय', yesBtn, noBtn, remarkBox));
-        noBtn.addEventListener('click', () => selectAnswer(q.questionId, 'नाही', noBtn, yesBtn, remarkBox));
+        // 5-star rating — only built for "तपासावी/तपासाव्यात" questions.
+        // Hidden until होय is selected; required once shown.
+        let starGroup = null;
+        let starButtons = [];
+        let ratingHint = null;
+        if (rating) {
+          starGroup = document.createElement('div');
+          starGroup.className = 'star-group hidden-force';
+          for (let i = 1; i <= 5; i++) {
+            const starBtn = document.createElement('button');
+            starBtn.type = 'button';
+            starBtn.className = 'star-btn';
+            starBtn.textContent = '★';
+            starBtn.dataset.value = String(i);
+            starBtn.setAttribute('aria-label', i + ' स्टार');
+            starBtn.addEventListener('click', () => setRating(q.questionId, i, starButtons, ratingHint));
+            starButtons.push(starBtn);
+            starGroup.appendChild(starBtn);
+          }
+          ratingHint = document.createElement('div');
+          ratingHint.className = 'rating-hint required';
+          ratingHint.textContent = 'रेटिंग द्या (आवश्यक)';
+        }
+
+        // Multi-select checkbox group — only built for the difficulty question.
+        let checkGroup = null;
+        if (difficulty) {
+          checkGroup = document.createElement('div');
+          checkGroup.className = 'check-group';
+          DIFFICULTY_OPTIONS.forEach((label, idx) => {
+            const optLabel = document.createElement('label');
+            optLabel.className = 'check-option';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = label;
+            cb.dataset.index = String(idx);
+            cb.addEventListener('change', () => {
+              if (!currentAnswers[q.questionId]) currentAnswers[q.questionId] = {};
+              const current = currentAnswers[q.questionId].difficultyOptions || [];
+              currentAnswers[q.questionId].difficultyOptions = cb.checked
+                ? [...current, label]
+                : current.filter((v) => v !== label);
+            });
+            const span = document.createElement('span');
+            span.textContent = label; // textContent — safe even after Aj updates the labels
+            optLabel.appendChild(cb);
+            optLabel.appendChild(span);
+            checkGroup.appendChild(optLabel);
+          });
+        }
+
+        yesBtn.addEventListener('click', () => selectAnswer(q.questionId, 'होय', yesBtn, noBtn, remarkBox, starGroup, starButtons, ratingHint));
+        noBtn.addEventListener('click', () => selectAnswer(q.questionId, 'नाही', noBtn, yesBtn, remarkBox, starGroup, starButtons, ratingHint));
 
         ynGroup.appendChild(yesBtn);
         ynGroup.appendChild(noBtn);
         row.appendChild(questionText);
         row.appendChild(ynGroup);
         row.appendChild(remarkBox);
+        if (starGroup) { row.appendChild(starGroup); row.appendChild(ratingHint); }
+        if (checkGroup) row.appendChild(checkGroup);
         list.appendChild(row);
       });
 
@@ -437,7 +488,15 @@
     updateProgress();
   }
 
-  function selectAnswer(questionId, value, activeBtn, otherBtn, remarkBox) {
+  function setRating(questionId, value, starButtons, ratingHint) {
+    if (!currentAnswers[questionId]) currentAnswers[questionId] = {};
+    currentAnswers[questionId].rating = value;
+    starButtons.forEach((btn, idx) => btn.classList.toggle('filled', idx < value));
+    if (ratingHint) { ratingHint.textContent = value + ' / 5'; ratingHint.classList.remove('required'); }
+    updateProgress();
+  }
+
+  function selectAnswer(questionId, value, activeBtn, otherBtn, remarkBox, starGroup, starButtons, ratingHint) {
     if (!currentAnswers[questionId]) currentAnswers[questionId] = {};
     currentAnswers[questionId].answer = value;
     activeBtn.classList.add('active');
@@ -450,16 +509,33 @@
       remarkBox.value = '';
       currentAnswers[questionId].remark = '';
     }
+
+    // Star rating only ever applies to होय — reset/hide it whenever नाही
+    // is chosen so a stale rating can't be submitted for a "no" answer.
+    if (starGroup) {
+      if (value === 'होय') {
+        starGroup.classList.remove('hidden-force');
+        if (ratingHint) ratingHint.classList.remove('hidden-force');
+      } else {
+        starGroup.classList.add('hidden-force');
+        if (ratingHint) ratingHint.classList.add('hidden-force');
+        starButtons.forEach((btn) => btn.classList.remove('filled'));
+        delete currentAnswers[questionId].rating;
+      }
+    }
     updateProgress();
   }
 
   // A question counts as "answered" only once it has a real answer, and —
-  // if that answer is नाही — a non-empty remark too. Shared by both the
+  // if that answer is नाही — a non-empty remark too. A rating question also
+  // requires a 1-5 star rating once होय is selected. Shared by both the
   // progress bar and the submit-time validation so they never disagree.
   function isQuestionAnswered(questionId) {
     const a = currentAnswers[questionId];
     if (!a || !a.answer) return false;
     if (a.answer === 'नाही') return !!(a.remark && a.remark.trim());
+    const q = checklistQuestions.find((qq) => qq.questionId === questionId);
+    if (q && isRatingQuestion(q.question)) return !!a.rating;
     return true;
   }
 
@@ -517,8 +593,11 @@
     const unanswered = checklistQuestions.filter((q) => !isQuestionAnswered(q.questionId));
     if (unanswered.length > 0) {
       const allJustMissingRemark = unanswered.every((q) => currentAnswers[q.questionId] && currentAnswers[q.questionId].answer === 'नाही');
+      const allJustMissingRating = unanswered.every((q) => currentAnswers[q.questionId] && currentAnswers[q.questionId].answer === 'होय' && isRatingQuestion(q.question) && !currentAnswers[q.questionId].rating);
       if (allJustMissingRemark) {
         Swal.fire({ icon: 'warning', title: 'शेरा आवश्यक आहे', text: `"नाही" दिलेल्या ${unanswered.length} प्रश्नांसाठी शेरा लिहा` });
+      } else if (allJustMissingRating) {
+        Swal.fire({ icon: 'warning', title: 'रेटिंग आवश्यक आहे', text: `${unanswered.length} प्रश्नांसाठी स्टार रेटिंग द्या` });
       } else {
         Swal.fire({ icon: 'warning', title: 'सर्व प्रश्नांची उत्तरे द्या', text: `${unanswered.length} प्रश्न बाकी आहेत` });
       }
@@ -536,7 +615,9 @@
       const responses = checklistQuestions.map((q) => ({
         questionId: q.questionId, question: q.question, category: q.category,
         answer: currentAnswers[q.questionId].answer,
-        remark: currentAnswers[q.questionId].remark || ''
+        remark: currentAnswers[q.questionId].remark || '',
+        rating: currentAnswers[q.questionId].rating || '',
+        difficultyOptions: (currentAnswers[q.questionId].difficultyOptions || []).join(', ')
       }));
 
       const response = await submitVisit({
@@ -586,7 +667,6 @@
     // this point; this just fetches the PDF that generates in the
     // background, so "submit" itself stays fast.
     generatePdfNow(response.visitId);
-    autoUploadQueuedPhotos(response.visitId);
   }
 
   async function generatePdfNow(visitId) {
@@ -613,111 +693,6 @@
     btn.disabled = true; btn.textContent = 'तयार करत आहे...';
     document.getElementById('resultSubtext').textContent = '📄 PDF तयार होत आहे, कृपया थांबा...';
     await generatePdfNow(lastVisitId);
-  }
-
-  const PHOTO_SLOT_IDS = { before: 'resultBeforePhotoSlot', after: 'resultAfterPhotoSlot' };
-  const PHOTO_LABELS = { before: 'आधीचा फोटो', after: 'नंतरचा फोटो' };
-
-  // state: 'empty' | 'uploading' | 'done' | 'error'
-  function renderPhotoSlot(type, state, url) {
-    const container = document.getElementById(PHOTO_SLOT_IDS[type]);
-    container.innerHTML = '';
-
-    const label = document.createElement('div');
-    label.className = 'text-xs font-semibold mb-1';
-    label.style.color = '#64748b';
-    label.textContent = PHOTO_LABELS[type];
-    container.appendChild(label);
-
-    if (state === 'done' && url) {
-      const img = document.createElement('img');
-      img.src = url;
-      img.style.cssText = 'width:100%;height:90px;object-fit:cover;border-radius:8px;cursor:pointer;';
-      img.title = 'मोठे पाहण्यासाठी क्लिक करा';
-      img.addEventListener('click', () => window.open(url, '_blank'));
-      container.appendChild(img);
-      return;
-    }
-
-    if (state === 'uploading') {
-      const status = document.createElement('div');
-      status.className = 'gps-status';
-      status.style.fontSize = '12px';
-      status.textContent = '⏳ अपलोड होत आहे...';
-      container.appendChild(status);
-      return;
-    }
-
-    // 'empty' or 'error' — show an add/retry control
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.setAttribute('capture', 'environment');
-    input.className = 'input mb-2';
-    input.style.cssText = 'font-size:12px;padding:8px;';
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn-secondary';
-    btn.style.cssText = 'padding:8px;font-size:12px;';
-    btn.textContent = state === 'error' ? '⚠️ पुन्हा प्रयत्न करा' : '+ जोडा';
-    btn.addEventListener('click', () => {
-      const file = input.files[0];
-      if (!file) {
-        Swal.fire({ icon: 'warning', title: 'फोटो निवडा' });
-        return;
-      }
-      uploadResultPhoto(type, file);
-    });
-
-    container.appendChild(input);
-    container.appendChild(btn);
-  }
-
-  async function uploadResultPhoto(type, file) {
-    renderPhotoSlot(type, 'uploading');
-    try {
-      const { base64, mimeType } = await compressImage(file);
-      const response = await uploadVisitPhoto(lastVisitId, type, base64, mimeType);
-      if (response.success) {
-        renderPhotoSlot(type, 'done', response.url);
-      } else {
-        Swal.fire({ icon: 'error', title: 'अपलोड अयशस्वी', text: response.message });
-        renderPhotoSlot(type, 'error');
-      }
-    } catch (error) {
-      Swal.fire({ icon: 'error', title: 'त्रुटी', text: error.message });
-      renderPhotoSlot(type, 'error');
-    }
-  }
-
-  // Called automatically right after a successful submit — uploads
-  // whichever of before/after was already picked in the form, and shows
-  // an "add now" control for whichever wasn't, so either can still be
-  // added later from this same panel.
-  async function autoUploadQueuedPhotos(visitId) {
-    if (beforePhotoFile) {
-      renderPhotoSlot('before', 'uploading');
-      uploadQueuedPhoto('before', beforePhotoFile, visitId);
-    } else {
-      renderPhotoSlot('before', 'empty');
-    }
-    if (afterPhotoFile) {
-      renderPhotoSlot('after', 'uploading');
-      uploadQueuedPhoto('after', afterPhotoFile, visitId);
-    } else {
-      renderPhotoSlot('after', 'empty');
-    }
-  }
-
-  async function uploadQueuedPhoto(type, file, visitId) {
-    try {
-      const { base64, mimeType } = await compressImage(file);
-      const response = await uploadVisitPhoto(visitId, type, base64, mimeType);
-      renderPhotoSlot(type, response.success ? 'done' : 'error', response.url);
-    } catch (error) {
-      renderPhotoSlot(type, 'error');
-    }
   }
 
   async function onUploadSigned() {
@@ -766,16 +741,13 @@
     currentAnswers = {};
     document.querySelectorAll('.yn-btn.active').forEach((b) => b.classList.remove('active'));
     document.querySelectorAll('#checklistContainer textarea').forEach((t) => t.classList.add('hidden-force'));
+    document.querySelectorAll('.star-btn.filled').forEach((b) => b.classList.remove('filled'));
+    document.querySelectorAll('.star-group').forEach((s) => s.classList.add('hidden-force'));
+    document.querySelectorAll('.rating-hint').forEach((h) => { h.textContent = 'रेटिंग द्या (आवश्यक)'; h.classList.add('required', 'hidden-force'); });
+    document.querySelectorAll('.check-group input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
     document.getElementById('busStation').innerHTML = '<option value="">आधी जिल्हा निवडा</option>';
     document.getElementById('busStation').disabled = true;
     document.getElementById('visitDate').value = formatDateTime(new Date());
-
-    beforePhotoFile = null;
-    afterPhotoFile = null;
-    document.getElementById('beforePhotoPreview').classList.add('hidden-force');
-    document.getElementById('afterPhotoPreview').classList.add('hidden-force');
-    document.getElementById('beforePhotoInput').value = '';
-    document.getElementById('afterPhotoInput').value = '';
 
     updateProgress();
     captureGps();

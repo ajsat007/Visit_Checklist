@@ -148,10 +148,29 @@ function buildVisitPdfHtml(visit, responses, qrBase64) {
     byCategory[cat].forEach(function (r) {
       const isYes = r.answer === 'होय';
       const badgeColor = isYes ? '#1a7f37' : '#c0392b';
+
+      // Star rating line (only present for तपासावी/तपासाव्यात questions
+      // answered होय) — printed as filled/empty stars plus the numeric score.
+      let extraHtml = '';
+      const ratingNum = parseInt(r.rating, 10);
+      if (ratingNum >= 1 && ratingNum <= 5) {
+        const stars = '★★★★★'.slice(0, ratingNum) + '☆☆☆☆☆'.slice(0, 5 - ratingNum);
+        extraHtml += '<div style="margin-top:3px;color:' + YELLOW + ';font-size:13px;letter-spacing:1px;">' +
+          stars + ' <span style="color:#64748b;font-size:10px;">(' + ratingNum + '/5)</span></div>';
+      }
+      // Ticked difficulty options (only present for the अडचणी question)
+      if (r.difficultyOptions) {
+        extraHtml += '<div style="margin-top:3px;color:#475569;font-size:10.5px;"><b>अडचणी:</b> ' + escapeHtml(r.difficultyOptions) + '</div>';
+      }
+      // Remark (only present when answer is नाही)
+      if (r.remark) {
+        extraHtml += '<div style="margin-top:3px;color:#475569;font-size:10.5px;"><b>शेरा:</b> ' + escapeHtml(r.remark) + '</div>';
+      }
+
       checklistRowsHtml +=
         '<tr>' +
-        '<td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;width:80%;">' + escapeHtml(r.question) + '</td>' +
-        '<td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">' +
+        '<td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;width:80%;">' + escapeHtml(r.question) + extraHtml + '</td>' +
+        '<td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center;vertical-align:top;">' +
         '<span style="color:' + badgeColor + ';font-weight:bold;">' + escapeHtml(r.answer) + '</span>' +
         '</td></tr>';
     });

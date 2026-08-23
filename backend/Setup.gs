@@ -75,7 +75,14 @@ const COLS = {
     GPS_ADDRESS: 10, OVERALL_REMARK: 11, GENERATED_PDF_URL: 12,
     SIGNED_CHECKLIST_URL: 13, CREATED_TIMESTAMP: 14
   },
-  CHECKLIST_RESPONSE: { VISIT_ID: 0, QUESTION_ID: 1, QUESTION: 2, ANSWER: 3, TIMESTAMP: 4 },
+  // REMARK/RATING/DIFFICULTY_OPTIONS were added after TIMESTAMP (not inserted
+  // before it) so this schema change never shifts columns for rows written
+  // by the old code — existing Checklist_Response data stays valid as-is.
+  // See the migrateChecklistResponseSchema() one-time helper below.
+  CHECKLIST_RESPONSE: {
+    VISIT_ID: 0, QUESTION_ID: 1, QUESTION: 2, ANSWER: 3, TIMESTAMP: 4,
+    REMARK: 5, RATING: 6, DIFFICULTY_OPTIONS: 7
+  },
   AUDIT_LOG: { TIMESTAMP: 0, EMPLOYEE_ID: 1, ACTION: 2, DEVICE: 3, BROWSER: 4 }
 };
 
@@ -88,7 +95,7 @@ const SHEET_HEADERS = {
     'Visit Date', 'Visit Time', 'Latitude', 'Longitude', 'GPS Address', 'Overall Remark',
     'Generated PDF URL', 'Signed Checklist URL', 'Created Timestamp'
   ],
-  Checklist_Response: ['Visit ID', 'Question ID', 'Question', 'Answer', 'Timestamp'],
+  Checklist_Response: ['Visit ID', 'Question ID', 'Question', 'Answer', 'Timestamp', 'Remark', 'Rating', 'Difficulty Options'],
   Audit_Log: ['Timestamp', 'Employee ID', 'Action', 'Device', 'Browser']
 };
 
@@ -142,4 +149,31 @@ function runInitialSetup() {
 
   Logger.log('=== Setup complete ===');
   Logger.log('Next steps: enable the Drive API advanced service (see PDF_Engine.gs header), then deploy as a Web App.');
+}
+
+/**
+ * Run this ONCE if Checklist_Response already existed before the Rating /
+ * Difficulty-Options feature was added. It only appends the three new
+ * headers (Remark, Rating, Difficulty Options) in columns F/G/H if they
+ * are missing — it never touches existing rows or existing columns, so
+ * historical Visit_ID/Question/Answer/Timestamp data is untouched.
+ * Safe to re-run; it's a no-op if the headers are already present.
+ */
+function migrateChecklistResponseSchema() {
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(SHEETS.CHECKLIST_RESPONSE);
+  if (!sheet) {
+    Logger.log('Checklist_Response sheet not found — run runInitialSetup() first.');
+    return;
+  }
+  const headerRow = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 8)).getValues()[0];
+  const expected = SHEET_HEADERS.Checklist_Response;
+  let changed = false;
+  for (let col = 0; col < expected.length; col++) {
+    if (String(headerRow[col] || '').trim() !== expected[col]) {
+      sheet.getRange(1, col + 1).setValue(expected[col]);
+      changed = true;
+    }
+  }
+  Logger.log(changed ? 'Checklist_Response headers updated to include Remark/Rating/Difficulty Options.' : 'Checklist_Response headers already up to date.');
 }

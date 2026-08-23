@@ -342,10 +342,10 @@ function handleSubmitVisit(e) {
     visitSheet.getRange(newRow, COLS.TOUR_VISIT.VISIT_DATE + 1, 1, 2).setNumberFormat('@');
 
     const responseRows = responses.map(function (r) {
-      return [visitId, r.questionId, r.question, r.answer, now];
+      return [visitId, r.questionId, r.question, r.answer, now, r.remark || '', r.rating || '', r.difficultyOptions || ''];
     });
     if (responseRows.length > 0) {
-      responseSheet.getRange(responseSheet.getLastRow() + 1, 1, responseRows.length, 5).setValues(responseRows);
+      responseSheet.getRange(responseSheet.getLastRow() + 1, 1, responseRows.length, 8).setValues(responseRows);
     }
   } finally {
     lock.releaseLock();
@@ -671,6 +671,9 @@ function getResponsesForVisit(visitId) {
         questionId: questionId,
         question: data[i][COLS.CHECKLIST_RESPONSE.QUESTION],
         answer: data[i][COLS.CHECKLIST_RESPONSE.ANSWER],
+        remark: data[i][COLS.CHECKLIST_RESPONSE.REMARK] || '',
+        rating: data[i][COLS.CHECKLIST_RESPONSE.RATING] || '',
+        difficultyOptions: data[i][COLS.CHECKLIST_RESPONSE.DIFFICULTY_OPTIONS] || '',
         // Checklist_Response doesn't store category (matches spec's schema) —
         // joined back from Checklist_Master here so regenerated PDFs group
         // questions identically to the original submission.
