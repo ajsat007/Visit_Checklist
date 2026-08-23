@@ -338,7 +338,7 @@
 
   // Questions containing either of these words require a 5-star rating
   // (shown once होय is selected) in addition to the होय/नाही answer.
-  const RATING_KEYWORDS = ['तपासावी', 'तपासाव्यात', 'तपासावे'];
+  const RATING_KEYWORDS = ['तपासावी', 'तपासाव्यात', 'तपासावे', 'असल्यास खालील रेट'];
   function isRatingQuestion(questionText) {
     return RATING_KEYWORDS.some((kw) => (questionText || '').indexOf(kw) !== -1);
   }
