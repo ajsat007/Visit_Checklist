@@ -360,11 +360,13 @@
     DIFFICULTY_OTHER_LABEL
   ];
 
-  // The drainage/water/electricity technical-issue question: when होय is
-  // selected, a required textbox opens for the officer to note the issue.
-  const YES_NOTE_KEYWORD = 'ड्रेनेज, पाणीपुरवठा, विद्युत किंवा इतर कोणत्याही तांत्रिक समस्या असल्यास त्याची नोंद घ्यावी';
+  // Questions where selecting होय opens a required textbox for details.
+  const YES_NOTE_KEYWORDS = [
+    'ड्रेनेज, पाणीपुरवठा, विद्युत किंवा इतर कोणत्याही तांत्रिक समस्या असल्यास त्याची नोंद घ्यावी', // Q012 — drainage/water/electricity technical issue
+    'कर्मचाऱ्यानी भरतीसाठी कुठल्याही प्रकारची देवाण घेवाण केल्याचे आढळून आले आहे का' // Q005 — recruitment "देवाण घेवाण" found
+  ];
   function isYesNoteQuestion(questionText) {
-    return (questionText || '').indexOf(YES_NOTE_KEYWORD) !== -1;
+    return YES_NOTE_KEYWORDS.some((kw) => (questionText || '').indexOf(kw) !== -1);
   }
 
   async function loadChecklist() {
