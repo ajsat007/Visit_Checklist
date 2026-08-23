@@ -343,21 +343,29 @@
     return RATING_KEYWORDS.some((kw) => (questionText || '').indexOf(kw) !== -1);
   }
 
-  // The "कर्मचाऱ्यांच्या अडचणी" question gets a multi-select checkbox group
-  // instead of/alongside the normal answer, for ticking which difficulty
-  // categories (if any) came up. Labels are placeholders — update
-  // DIFFICULTY_OPTIONS below with the final option text; no other code
-  // needs to change when you do.
+  // The "कर्मचाऱ्यांच्या अडचणी" question has NO होय/नाही — only a multi-select
+  // checkbox group of difficulty categories. The last option is always
+  // "इतर" (Other); ticking it reveals a required free-text box. The first
+  // three labels are placeholders — update DIFFICULTY_OPTIONS below with
+  // the final option text whenever it's ready; no other code changes.
   const DIFFICULTY_KEYWORD = 'अडचणी असल्यास खालील पर्याय टिक करावा';
   function isDifficultyQuestion(questionText) {
     return (questionText || '').indexOf(DIFFICULTY_KEYWORD) !== -1;
   }
+  const DIFFICULTY_OTHER_LABEL = 'इतर';
   const DIFFICULTY_OPTIONS = [
     'पर्याय १ — (अपडेट प्रलंबित)',
     'पर्याय २ — (अपडेट प्रलंबित)',
     'पर्याय ३ — (अपडेट प्रलंबित)',
-    'पर्याय ४ — (अपडेट प्रलंबित)'
+    DIFFICULTY_OTHER_LABEL
   ];
+
+  // The drainage/water/electricity technical-issue question: when होय is
+  // selected, a required textbox opens for the officer to note the issue.
+  const YES_NOTE_KEYWORD = 'ड्रेनेज, पाणीपुरवठा, विद्युत किंवा इतर कोणत्याही तांत्रिक समस्या असल्यास त्याची नोंद घ्यावी';
+  function isYesNoteQuestion(questionText) {
+    return (questionText || '').indexOf(YES_NOTE_KEYWORD) !== -1;
+  }
 
   async function loadChecklist() {
     const response = await getChecklist();
@@ -385,6 +393,7 @@
       response.data.questions[category].forEach((q) => {
         const rating = isRatingQuestion(q.question);
         const difficulty = isDifficultyQuestion(q.question);
+        const yesNote = isYesNoteQuestion(q.question);
         checklistQuestions.push(q);
 
         const row = document.createElement('div');
@@ -395,7 +404,68 @@
         questionText.className = 'text-sm mb-2';
         questionText.style.cssText = 'color:#1e293b;';
         questionText.textContent = q.question; // safe text insertion
+        row.appendChild(questionText);
 
+        if (difficulty) {
+          // No होय/नाही for this question — only the checkbox group.
+          const checkGroup = document.createElement('div');
+          checkGroup.className = 'check-group';
+
+          DIFFICULTY_OPTIONS.forEach((label) => {
+            const optLabel = document.createElement('label');
+            optLabel.className = 'check-option';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = label;
+
+            // Only the "इतर" checkbox gets an attached free-text box.
+            let otherBox = null;
+            if (label === DIFFICULTY_OTHER_LABEL) {
+              otherBox = document.createElement('textarea');
+              otherBox.className = 'input hidden-force mt-2';
+              otherBox.rows = 2;
+              otherBox.style.fontSize = '13px';
+              otherBox.placeholder = 'तपशील लिहा... (आवश्यक)';
+              otherBox.addEventListener('input', () => {
+                if (!currentAnswers[q.questionId]) currentAnswers[q.questionId] = {};
+                currentAnswers[q.questionId].otherText = otherBox.value;
+                updateProgress();
+              });
+            }
+
+            cb.addEventListener('change', () => {
+              if (!currentAnswers[q.questionId]) currentAnswers[q.questionId] = {};
+              const current = currentAnswers[q.questionId].difficultyOptions || [];
+              currentAnswers[q.questionId].difficultyOptions = cb.checked
+                ? [...current, label]
+                : current.filter((v) => v !== label);
+              if (otherBox) {
+                if (cb.checked) {
+                  otherBox.classList.remove('hidden-force');
+                } else {
+                  otherBox.classList.add('hidden-force');
+                  otherBox.value = '';
+                  currentAnswers[q.questionId].otherText = '';
+                }
+              }
+              updateProgress();
+            });
+
+            const span = document.createElement('span');
+            span.textContent = label; // textContent — safe even after Aj updates the labels
+            optLabel.appendChild(cb);
+            optLabel.appendChild(span);
+            checkGroup.appendChild(optLabel);
+            if (otherBox) checkGroup.appendChild(otherBox);
+          });
+
+          row.appendChild(checkGroup);
+          list.appendChild(row);
+          return; // difficulty question is fully built — skip the normal yn branch below
+        }
+
+        // ---- Normal होय/नाही question (optionally layered with a 5-star
+        // rating and/or a required "note on होय" textbox) ----
         const ynGroup = document.createElement('div');
         ynGroup.className = 'yn-group';
 
@@ -417,7 +487,7 @@
           updateProgress();
         });
 
-        // 5-star rating — only built for "तपासावी/तपासाव्यात" questions.
+        // 5-star rating — only built for तपासावी/तपासाव्यात/तपासावे questions.
         // Hidden until होय is selected; required once shown.
         let starGroup = null;
         let starButtons = [];
@@ -441,43 +511,30 @@
           ratingHint.textContent = 'रेटिंग द्या (आवश्यक)';
         }
 
-        // Multi-select checkbox group — only built for the difficulty question.
-        let checkGroup = null;
-        if (difficulty) {
-          checkGroup = document.createElement('div');
-          checkGroup.className = 'check-group';
-          DIFFICULTY_OPTIONS.forEach((label, idx) => {
-            const optLabel = document.createElement('label');
-            optLabel.className = 'check-option';
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.value = label;
-            cb.dataset.index = String(idx);
-            cb.addEventListener('change', () => {
-              if (!currentAnswers[q.questionId]) currentAnswers[q.questionId] = {};
-              const current = currentAnswers[q.questionId].difficultyOptions || [];
-              currentAnswers[q.questionId].difficultyOptions = cb.checked
-                ? [...current, label]
-                : current.filter((v) => v !== label);
-            });
-            const span = document.createElement('span');
-            span.textContent = label; // textContent — safe even after Aj updates the labels
-            optLabel.appendChild(cb);
-            optLabel.appendChild(span);
-            checkGroup.appendChild(optLabel);
+        // "Note on होय" — required textbox, opposite polarity of remarkBox.
+        // Only built for the drainage/technical-issue question.
+        let yesNoteBox = null;
+        if (yesNote) {
+          yesNoteBox = document.createElement('textarea');
+          yesNoteBox.className = 'input hidden-force mt-2';
+          yesNoteBox.rows = 2;
+          yesNoteBox.style.fontSize = '13px';
+          yesNoteBox.placeholder = 'तपशील लिहा... (आवश्यक)';
+          yesNoteBox.addEventListener('input', () => {
+            if (currentAnswers[q.questionId]) currentAnswers[q.questionId].yesNote = yesNoteBox.value;
+            updateProgress();
           });
         }
 
-        yesBtn.addEventListener('click', () => selectAnswer(q.questionId, 'होय', yesBtn, noBtn, remarkBox, starGroup, starButtons, ratingHint));
-        noBtn.addEventListener('click', () => selectAnswer(q.questionId, 'नाही', noBtn, yesBtn, remarkBox, starGroup, starButtons, ratingHint));
+        yesBtn.addEventListener('click', () => selectAnswer(q.questionId, 'होय', yesBtn, noBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox));
+        noBtn.addEventListener('click', () => selectAnswer(q.questionId, 'नाही', noBtn, yesBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox));
 
         ynGroup.appendChild(yesBtn);
         ynGroup.appendChild(noBtn);
-        row.appendChild(questionText);
         row.appendChild(ynGroup);
         row.appendChild(remarkBox);
         if (starGroup) { row.appendChild(starGroup); row.appendChild(ratingHint); }
-        if (checkGroup) row.appendChild(checkGroup);
+        if (yesNoteBox) row.appendChild(yesNoteBox);
         list.appendChild(row);
       });
 
@@ -496,7 +553,7 @@
     updateProgress();
   }
 
-  function selectAnswer(questionId, value, activeBtn, otherBtn, remarkBox, starGroup, starButtons, ratingHint) {
+  function selectAnswer(questionId, value, activeBtn, otherBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox) {
     if (!currentAnswers[questionId]) currentAnswers[questionId] = {};
     currentAnswers[questionId].answer = value;
     activeBtn.classList.add('active');
@@ -523,19 +580,44 @@
         delete currentAnswers[questionId].rating;
       }
     }
+
+    // "Note on होय" textbox — opposite polarity of remarkBox: shown and
+    // required on होय, hidden and cleared on नाही.
+    if (yesNoteBox) {
+      if (value === 'होय') {
+        yesNoteBox.classList.remove('hidden-force');
+      } else {
+        yesNoteBox.classList.add('hidden-force');
+        yesNoteBox.value = '';
+        currentAnswers[questionId].yesNote = '';
+      }
+    }
     updateProgress();
   }
 
-  // A question counts as "answered" only once it has a real answer, and —
-  // if that answer is नाही — a non-empty remark too. A rating question also
-  // requires a 1-5 star rating once होय is selected. Shared by both the
-  // progress bar and the submit-time validation so they never disagree.
+  // A question counts as "answered" once it has a real answer, and — if
+  // that answer is नाही — a non-empty remark too. A rating question also
+  // requires a 1-5 star rating once होय is selected, and a "note on होय"
+  // question requires its textbox filled once होय is selected. The
+  // difficulty checkbox question has no answer at all — it's optional,
+  // except its "इतर" detail box is required once इतर is ticked. Shared by
+  // both the progress bar and the submit-time validation so they never
+  // disagree.
   function isQuestionAnswered(questionId) {
+    const q = checklistQuestions.find((qq) => qq.questionId === questionId);
     const a = currentAnswers[questionId];
+
+    if (q && isDifficultyQuestion(q.question)) {
+      if (a && (a.difficultyOptions || []).indexOf(DIFFICULTY_OTHER_LABEL) !== -1) {
+        return !!(a.otherText && a.otherText.trim());
+      }
+      return true;
+    }
+
     if (!a || !a.answer) return false;
     if (a.answer === 'नाही') return !!(a.remark && a.remark.trim());
-    const q = checklistQuestions.find((qq) => qq.questionId === questionId);
-    if (q && isRatingQuestion(q.question)) return !!a.rating;
+    if (q && isRatingQuestion(q.question) && !a.rating) return false;
+    if (q && isYesNoteQuestion(q.question) && !(a.yesNote && a.yesNote.trim())) return false;
     return true;
   }
 
@@ -612,13 +694,24 @@
 
     setSubmitting(true);
     try {
-      const responses = checklistQuestions.map((q) => ({
-        questionId: q.questionId, question: q.question, category: q.category,
-        answer: currentAnswers[q.questionId].answer,
-        remark: currentAnswers[q.questionId].remark || '',
-        rating: currentAnswers[q.questionId].rating || '',
-        difficultyOptions: (currentAnswers[q.questionId].difficultyOptions || []).join(', ')
-      }));
+      const responses = checklistQuestions.map((q) => {
+        const a = currentAnswers[q.questionId] || {};
+        // "इतर" is folded into the printed/stored option text as "इतर: <detail>"
+        // so its free-text detail travels with the rest of the ticks — no
+        // extra column needed.
+        const difficultyOptions = (a.difficultyOptions || [])
+          .map((opt) => (opt === DIFFICULTY_OTHER_LABEL && a.otherText ? (DIFFICULTY_OTHER_LABEL + ': ' + a.otherText) : opt))
+          .join(', ');
+        return {
+          questionId: q.questionId, question: q.question, category: q.category,
+          answer: a.answer || '',
+          // remark (नाही reason) and yesNote (होय detail) are mutually
+          // exclusive per question — both land in the same sheet column.
+          remark: a.remark || a.yesNote || '',
+          rating: a.rating || '',
+          difficultyOptions: difficultyOptions
+        };
+      });
 
       const response = await submitVisit({
         district, busStation,
