@@ -4,7 +4,7 @@
  * ============================================================================
  */
 
-const CACHE_VERSION = 'v2.0.0';
+const CACHE_VERSION = 'v2.1.0';
 const CACHE_NAME = `smart-services-tour-visit-${CACHE_VERSION}`;
 
 // Only list files that actually exist in this project. cache.addAll() is
@@ -94,7 +94,7 @@ async function cacheFirst(request) {
 async function networkFirst(request) {
   try {
     const response = await Promise.race([
-      fetch(request),
+      fetch(request, { cache: 'no-store' }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
     ]);
     return response;
@@ -108,7 +108,12 @@ async function networkFirst(request) {
 
 async function networkFirstWithCacheFallback(request) {
   try {
-    const response = await fetch(request);
+    // { cache: 'no-store' } bypasses the BROWSER's own HTTP cache too — not
+    // just this Service Worker's cache. Without it, "network first" can
+    // still hand back a stale disk-cached response from the browser layer,
+    // which is what was making pushed code changes not show up until a
+    // manual hard-refresh.
+    const response = await fetch(request, { cache: 'no-store' });
     if (response.ok) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, response.clone());
@@ -121,8 +126,15 @@ async function networkFirstWithCacheFallback(request) {
   }
 }
 
+// Only assets that essentially never change once shipped (images, fonts)
+// are cache-first. Local JS modules (assets/js/*.js) were deliberately
+// dropped from this list — they change often as features ship, and
+// cache-first was serving old logic (e.g. api.js) indefinitely until the
+// whole CACHE_VERSION was bumped. They now go through
+// networkFirstWithCacheFallback like the HTML pages, so an online user
+// always gets the latest code and only falls back to cache when offline.
 function isStaticAsset(pathname) {
-  return ['.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.ico', '.woff', '.woff2'].some((ext) => pathname.endsWith(ext));
+  return ['.png', '.jpg', '.jpeg', '.svg', '.ico', '.woff', '.woff2'].some((ext) => pathname.endsWith(ext));
 }
 
 self.addEventListener('message', (event) => {
