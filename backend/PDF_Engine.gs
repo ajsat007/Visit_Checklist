@@ -195,40 +195,41 @@ function buildVisitPdfHtml(visit, responses, qrBase64) {
   });
 
   let checklistRowsHtml = '';
+  let srNo = 0;
   order.forEach(function (cat) {
     checklistRowsHtml +=
-      '<tr><td colspan="2" style="background:' + NAVY + ';color:#fff;font-weight:bold;padding:3px 8px;font-size:10px;">' +
+      '<tr><td colspan="4" style="background:' + NAVY + ';color:#fff;font-weight:bold;padding:4px 8px;font-size:10px;border:1px solid ' + NAVY + ';">' +
       escapeHtml(cat) + '</td></tr>';
     byCategory[cat].forEach(function (r) {
+      srNo++;
       const isYes = r.answer === 'होय';
       const badgeColor = isYes ? '#1a7f37' : '#c0392b';
+      const rowBg = srNo % 2 === 0 ? '#F8FAFC' : '#FFFFFF';
 
-      // Star rating (only present once a rated question has been answered
-      // होय and the officer picked a value) — printed clearly and labelled
-      // so it's never missed on the page.
-      let extraHtml = '';
+      // Rating / difficulty-ticks / remark are mutually exclusive per
+      // question (a rated question only ever carries a rating on होय; a
+      // remark only ever appears on नाही) — so this one column always
+      // shows exactly the one that applies, never a stack of several.
+      let noteCellHtml = '<span style="color:#cbd5e1;">—</span>';
       const ratingNum = parseInt(r.rating, 10);
       if (ratingNum >= 1 && ratingNum <= 5) {
         const stars = '★★★★★'.slice(0, ratingNum) + '☆☆☆☆☆'.slice(0, 5 - ratingNum);
-        extraHtml += '<div style="margin-top:1px;font-size:9.5px;"><b style="color:' + NAVY + ';">रेटिंग:</b> ' +
-          '<span style="color:' + YELLOW + ';letter-spacing:1px;">' + stars + '</span> ' +
-          '<span style="color:#64748b;">(' + ratingNum + '/5)</span></div>';
-      }
-      // Ticked difficulty options (only present for the अडचणी question)
-      if (r.difficultyOptions) {
-        extraHtml += '<div style="margin-top:1px;color:#475569;font-size:9px;"><b>अडचणी:</b> ' + escapeHtml(r.difficultyOptions) + '</div>';
-      }
-      // Remark / detail note (नाही reason, or होय detail for note-type questions)
-      if (r.remark) {
-        extraHtml += '<div style="margin-top:1px;color:#475569;font-size:9px;"><b>शेरा:</b> ' + escapeHtml(r.remark) + '</div>';
+        noteCellHtml = '<span style="color:' + YELLOW + ';letter-spacing:1px;">' + stars + '</span> <span style="color:#64748b;">(' + ratingNum + '/5)</span>';
+      } else if (r.difficultyOptions) {
+        noteCellHtml = escapeHtml(r.difficultyOptions);
+      } else if (r.remark) {
+        noteCellHtml = escapeHtml(r.remark);
       }
 
       checklistRowsHtml +=
-        '<tr style="page-break-inside:avoid;">' +
-        '<td style="padding:3px 8px;border-bottom:1px solid #e2e8f0;width:78%;font-size:9.5px;line-height:1.25;">' + escapeHtml(r.question) + extraHtml + '</td>' +
-        '<td style="padding:3px 8px;border-bottom:1px solid #e2e8f0;text-align:center;vertical-align:top;font-size:9.5px;">' +
+        '<tr style="page-break-inside:avoid;background:' + rowBg + ';">' +
+        '<td style="padding:4px 6px;border:1px solid #e2e8f0;text-align:center;vertical-align:middle;font-size:9.5px;">' + srNo + '</td>' +
+        '<td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9.5px;line-height:1.3;vertical-align:middle;">' + escapeHtml(r.question) + '</td>' +
+        '<td style="padding:4px 6px;border:1px solid #e2e8f0;text-align:center;vertical-align:middle;font-size:9.5px;">' +
         (r.answer ? '<span style="color:' + badgeColor + ';font-weight:bold;">' + escapeHtml(r.answer) + '</span>' : '<span style="color:#94a3b8;">—</span>') +
-        '</td></tr>';
+        '</td>' +
+        '<td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9px;vertical-align:middle;">' + noteCellHtml + '</td>' +
+        '</tr>';
     });
   });
 
@@ -273,8 +274,17 @@ function buildVisitPdfHtml(visit, responses, qrBase64) {
     (visit.gpsAddress ? ' — ' + escapeHtml(visit.gpsAddress) : '') + '</td>' +
     '</tr></table>' +
 
-    // Checklist table
-    '<table width="100%" style="border-collapse:collapse;border:1px solid #e2e8f0;margin-bottom:8px;">' +
+    // Checklist table — fixed column widths (Sr.No / Question / Answer /
+    // Rating-Remark) with a proper header row and bordered, zebra-striped
+    // body rows for a print-consistent, professional look.
+    '<table width="100%" style="border-collapse:collapse;border:1px solid ' + NAVY + ';margin-bottom:8px;table-layout:fixed;">' +
+    '<colgroup><col style="width:5%"><col style="width:50%"><col style="width:13%"><col style="width:32%"></colgroup>' +
+    '<tr style="background:' + NAVY + ';color:#fff;">' +
+    '<th style="padding:5px 6px;border:1px solid ' + NAVY + ';font-size:9.5px;">अ.क्र.</th>' +
+    '<th style="padding:5px 8px;border:1px solid ' + NAVY + ';font-size:9.5px;text-align:left;">तपासणी बाब</th>' +
+    '<th style="padding:5px 6px;border:1px solid ' + NAVY + ';font-size:9.5px;">उत्तर</th>' +
+    '<th style="padding:5px 8px;border:1px solid ' + NAVY + ';font-size:9.5px;text-align:left;">रेटिंग / शेरा</th>' +
+    '</tr>' +
     checklistRowsHtml +
     '</table>' +
 
