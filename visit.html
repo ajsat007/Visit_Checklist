@@ -560,8 +560,8 @@
           });
         }
 
-        yesBtn.addEventListener('click', () => selectAnswer(q.questionId, 'होय', yesBtn, noBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox, questionText));
-        noBtn.addEventListener('click', () => selectAnswer(q.questionId, 'नाही', noBtn, yesBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox, questionText));
+        yesBtn.addEventListener('click', () => selectAnswer(q.questionId, 'होय', yesBtn, noBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox, questionText, yesNote));
+        noBtn.addEventListener('click', () => selectAnswer(q.questionId, 'नाही', noBtn, yesBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox, questionText, yesNote));
 
         ynGroup.appendChild(yesBtn);
         ynGroup.appendChild(noBtn);
@@ -587,16 +587,21 @@
     updateProgress();
   }
 
-  function selectAnswer(questionId, value, activeBtn, otherBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox, questionText) {
+  function selectAnswer(questionId, value, activeBtn, otherBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox, questionText, invertHighlight) {
     if (!currentAnswers[questionId]) currentAnswers[questionId] = {};
     currentAnswers[questionId].answer = value;
     activeBtn.classList.add('active');
     otherBtn.classList.remove('active');
 
     // The question itself is the primary visual highlight once answered.
+    // Normally होय = green ("all good"), नाही = red ("issue"). But for
+    // problem-detection questions (Q005/Q012-style, invertHighlight=true)
+    // होय MEANS a problem was found, so the polarity flips: होय = red,
+    // नाही = green.
     if (questionText) {
       questionText.classList.remove('answered-yes', 'answered-no');
-      questionText.classList.add(value === 'होय' ? 'answered-yes' : 'answered-no');
+      const isGood = invertHighlight ? value === 'नाही' : value === 'होय';
+      questionText.classList.add(isGood ? 'answered-yes' : 'answered-no');
     }
 
     if (remarkBox) {
