@@ -354,11 +354,20 @@
     stationSelect.disabled = false;
   }
 
+  // All keyword matching below is done against whitespace-normalized text
+  // (multiple/irregular spaces collapsed to one) so a question keeps
+  // matching even if someone retypes it in the sheet with slightly
+  // different spacing than the code's stored keyword.
+  function normalizeSpaces(str) {
+    return String(str || '').replace(/\s+/g, ' ').trim();
+  }
+
   // Questions containing either of these words require a 5-star rating
   // (shown once होय is selected) in addition to the होय/नाही answer.
-  const RATING_KEYWORDS = ['तपासावी', 'तपासाव्यात', 'तपासावे', 'असल्यास खालील रेट', 'रेटिंग (५ पैकी)'];
+  const RATING_KEYWORDS = ['तपासावी', 'तपासाव्यात', 'तपासावे', 'असल्यास खालील रेट', 'रेटिंग (५ पैकी)'].map(normalizeSpaces);
   function isRatingQuestion(questionText) {
-    return RATING_KEYWORDS.some((kw) => (questionText || '').indexOf(kw) !== -1);
+    const t = normalizeSpaces(questionText);
+    return RATING_KEYWORDS.some((kw) => t.indexOf(kw) !== -1);
   }
 
   // The "कर्मचाऱ्यांच्या अडचणी" question has NO होय/नाही — only a multi-select
@@ -366,9 +375,9 @@
   // "इतर" (Other); ticking it reveals a required free-text box. The first
   // three labels are placeholders — update DIFFICULTY_OPTIONS below with
   // the final option text whenever it's ready; no other code changes.
-  const DIFFICULTY_KEYWORD = 'अडचणी असल्यास खालील पर्याय टिक करावा';
+  const DIFFICULTY_KEYWORD = normalizeSpaces('अडचणी असल्यास खालील पर्याय टिक करावा');
   function isDifficultyQuestion(questionText) {
-    return (questionText || '').indexOf(DIFFICULTY_KEYWORD) !== -1;
+    return normalizeSpaces(questionText).indexOf(DIFFICULTY_KEYWORD) !== -1;
   }
   const DIFFICULTY_OTHER_LABEL = 'इतर';
   const DIFFICULTY_OPTIONS = [
@@ -382,9 +391,10 @@
   const YES_NOTE_KEYWORDS = [
     'ड्रेनेज, पाणीपुरवठा, विद्युत किंवा इतर कोणत्याही तांत्रिक समस्या असल्यास त्याची नोंद घ्यावी', // Q012 — drainage/water/electricity technical issue
     'कर्मचाऱ्यानी भरतीसाठी कुठल्याही प्रकारची देवाण घेवाण केल्याचे आढळून आले आहे का' // Q005 — recruitment "देवाण घेवाण" found
-  ];
+  ].map(normalizeSpaces);
   function isYesNoteQuestion(questionText) {
-    return YES_NOTE_KEYWORDS.some((kw) => (questionText || '').indexOf(kw) !== -1);
+    const t = normalizeSpaces(questionText);
+    return YES_NOTE_KEYWORDS.some((kw) => t.indexOf(kw) !== -1);
   }
 
   async function loadChecklist() {
