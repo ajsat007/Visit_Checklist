@@ -57,8 +57,26 @@
     background:#fff; font-weight:700; cursor:pointer; font-size:14px; transition:all .15s;
   }
   html.dark .yn-btn { background:#0f172a; border-color:#26314a; color:#cbd5e1; }
-  .yn-btn.yes.active { background:#16a34a; border-color:#16a34a; color:#fff; }
-  .yn-btn.no.active { background:#dc2626; border-color:#dc2626; color:#fff; }
+  /* Toned down from a solid glowing fill — the question itself carries the
+     highlight now (see .question-text below), the button just needs to
+     read clearly as selected. */
+  .yn-btn.yes.active { background:#ecfdf3; border-color:#16a34a; color:#15803d; }
+  .yn-btn.no.active { background:#fef2f2; border-color:#dc2626; color:#b91c1c; }
+  html.dark .yn-btn.yes.active { background:#052e1a; color:#4ade80; }
+  html.dark .yn-btn.no.active { background:#2d0a0a; color:#f87171; }
+
+  /* The question itself is the primary highlight once answered — larger,
+     bolder text with a colored left-accent + tint matching the answer. */
+  .question-text {
+    font-size:16px; font-weight:600; line-height:1.45; color:#1e293b;
+    padding:6px 10px; margin-bottom:8px; border-radius:8px;
+    border-left:4px solid #e2e8f0; background:transparent; transition:all .2s;
+  }
+  html.dark .question-text { color:#e5e9f2; border-left-color:#334155; }
+  .question-text.answered-yes { border-left-color:#16a34a; background:#ecfdf3; }
+  .question-text.answered-no { border-left-color:#dc2626; background:#fef2f2; }
+  html.dark .question-text.answered-yes { background:#052e1a; }
+  html.dark .question-text.answered-no { background:#2d0a0a; }
 
   .btn-primary {
     background:var(--yellow); color:var(--navy-deep); border:none; padding:14px 20px;
@@ -403,8 +421,7 @@
         row.dataset.questionId = q.questionId;
 
         const questionText = document.createElement('div');
-        questionText.className = 'text-sm mb-2';
-        questionText.style.cssText = 'color:#1e293b;';
+        questionText.className = 'question-text';
         questionText.textContent = q.question; // safe text insertion
         row.appendChild(questionText);
 
@@ -533,8 +550,8 @@
           });
         }
 
-        yesBtn.addEventListener('click', () => selectAnswer(q.questionId, 'होय', yesBtn, noBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox));
-        noBtn.addEventListener('click', () => selectAnswer(q.questionId, 'नाही', noBtn, yesBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox));
+        yesBtn.addEventListener('click', () => selectAnswer(q.questionId, 'होय', yesBtn, noBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox, questionText));
+        noBtn.addEventListener('click', () => selectAnswer(q.questionId, 'नाही', noBtn, yesBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox, questionText));
 
         ynGroup.appendChild(yesBtn);
         ynGroup.appendChild(noBtn);
@@ -560,11 +577,17 @@
     updateProgress();
   }
 
-  function selectAnswer(questionId, value, activeBtn, otherBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox) {
+  function selectAnswer(questionId, value, activeBtn, otherBtn, remarkBox, starGroup, starButtons, ratingHint, yesNoteBox, questionText) {
     if (!currentAnswers[questionId]) currentAnswers[questionId] = {};
     currentAnswers[questionId].answer = value;
     activeBtn.classList.add('active');
     otherBtn.classList.remove('active');
+
+    // The question itself is the primary visual highlight once answered.
+    if (questionText) {
+      questionText.classList.remove('answered-yes', 'answered-no');
+      questionText.classList.add(value === 'होय' ? 'answered-yes' : 'answered-no');
+    }
 
     if (remarkBox) {
       if (value === 'नाही') {
@@ -846,6 +869,7 @@
     document.getElementById('visitForm').reset();
     currentAnswers = {};
     document.querySelectorAll('.yn-btn.active').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('.question-text.answered-yes, .question-text.answered-no').forEach((q) => q.classList.remove('answered-yes', 'answered-no'));
     document.querySelectorAll('#checklistContainer textarea').forEach((t) => t.classList.add('hidden-force'));
     document.querySelectorAll('.star-btn.filled').forEach((b) => b.classList.remove('filled'));
     document.querySelectorAll('.star-group').forEach((s) => s.classList.add('hidden-force'));
