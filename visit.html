@@ -478,16 +478,21 @@
 
         // Required whenever नाही is selected — hidden otherwise. Selecting
         // होय clears and hides it again, since a remark only makes sense
-        // attached to a "no" answer.
-        const remarkBox = document.createElement('textarea');
-        remarkBox.className = 'input hidden-force mt-2';
-        remarkBox.rows = 2;
-        remarkBox.style.fontSize = '13px';
-        remarkBox.placeholder = 'कारण लिहा... (आवश्यक)';
-        remarkBox.addEventListener('input', () => {
-          if (currentAnswers[q.questionId]) currentAnswers[q.questionId].remark = remarkBox.value;
-          updateProgress();
-        });
+        // attached to a "no" answer. Skipped entirely for "yes-note"
+        // questions (Q005/Q012-style) — for those, नाही needs no reason
+        // at all; only होय opens a box (yesNoteBox, below).
+        let remarkBox = null;
+        if (!yesNote) {
+          remarkBox = document.createElement('textarea');
+          remarkBox.className = 'input hidden-force mt-2';
+          remarkBox.rows = 2;
+          remarkBox.style.fontSize = '13px';
+          remarkBox.placeholder = 'कारण लिहा... (आवश्यक)';
+          remarkBox.addEventListener('input', () => {
+            if (currentAnswers[q.questionId]) currentAnswers[q.questionId].remark = remarkBox.value;
+            updateProgress();
+          });
+        }
 
         // 5-star rating — only built for तपासावी/तपासाव्यात/तपासावे questions.
         // Hidden until होय is selected; required once shown.
@@ -534,7 +539,7 @@
         ynGroup.appendChild(yesBtn);
         ynGroup.appendChild(noBtn);
         row.appendChild(ynGroup);
-        row.appendChild(remarkBox);
+        if (remarkBox) row.appendChild(remarkBox);
         if (starGroup) { row.appendChild(starGroup); row.appendChild(ratingHint); }
         if (yesNoteBox) row.appendChild(yesNoteBox);
         list.appendChild(row);
@@ -561,12 +566,14 @@
     activeBtn.classList.add('active');
     otherBtn.classList.remove('active');
 
-    if (value === 'नाही') {
-      remarkBox.classList.remove('hidden-force');
-    } else {
-      remarkBox.classList.add('hidden-force');
-      remarkBox.value = '';
-      currentAnswers[questionId].remark = '';
+    if (remarkBox) {
+      if (value === 'नाही') {
+        remarkBox.classList.remove('hidden-force');
+      } else {
+        remarkBox.classList.add('hidden-force');
+        remarkBox.value = '';
+        currentAnswers[questionId].remark = '';
+      }
     }
 
     // Star rating only ever applies to होय — reset/hide it whenever नाही
@@ -617,9 +624,13 @@
     }
 
     if (!a || !a.answer) return false;
+    // Yes-note questions (Q005/Q012-style) skip the नाही-requires-remark
+    // rule entirely — नाही is a plain, complete answer for these.
+    if (q && isYesNoteQuestion(q.question)) {
+      return a.answer === 'नाही' || !!(a.yesNote && a.yesNote.trim());
+    }
     if (a.answer === 'नाही') return !!(a.remark && a.remark.trim());
     if (q && isRatingQuestion(q.question) && !a.rating) return false;
-    if (q && isYesNoteQuestion(q.question) && !(a.yesNote && a.yesNote.trim())) return false;
     return true;
   }
 
