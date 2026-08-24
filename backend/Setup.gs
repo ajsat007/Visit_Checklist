@@ -52,7 +52,11 @@ const CONFIG = {
   MAX_UPLOAD_BYTES: 10 * 1024 * 1024, // 10 MB, matches spec's file validation requirement
   ALLOWED_SIGNED_CHECKLIST_TYPES: ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'],
   API_VERSION: '2.0.0',
-  QR_ENDPOINT: 'https://quickchart.io/qr' // Google's chart.googleapis.com QR endpoint was retired; this is the current reliable free alternative
+  QR_ENDPOINT: 'https://quickchart.io/qr', // Google's chart.googleapis.com QR endpoint was retired; this is the current reliable free alternative
+  // Set to false to skip the QR fetch entirely for faster PDF generation
+  // (one fewer network round-trip in the critical path). true keeps the
+  // QR code on the PDF footer.
+  PDF_INCLUDE_QR: true
 };
 
 const SHEETS = {
